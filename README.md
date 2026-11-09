@@ -1,8 +1,8 @@
 # Alfred Hotels · Audit Client Mystère
 
-Application web : `index.html` + photos de référence dans `refs/`.
+- `index.html` : l'application (plateforme + parcours client mystère).
+- `refs/` : photos de référence affichées dans le questionnaire.
+- `apps-script.gs` : la base de données (Google Sheet) qui reçoit automatiquement les questionnaires validés.
 
-- Siège : ouvrir l'adresse du site.
-- Client mystère : lien personnel généré par la plateforme (`…/#cm-format-hotel-canal-id`).
-
-Version GitHub Pages : audits, rapports et plans d'action sont enregistrés dans le navigateur du siège. Les réponses des clients mystère reviennent par le « code de réponses » à importer dans Rapports. La relecture avec l'auditeur se fait par e-mail (bouton « Envoyer en relecture »).
+Une fois l'adresse Apps Script collée dans `index.html` (ligne `const API_URL=''`), les questionnaires
+validés par les clients arrivent seuls sur la plateforme, sans code à envoyer.
