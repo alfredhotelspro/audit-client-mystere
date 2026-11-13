@@ -376,7 +376,7 @@ const RICH=s=>['R','S','A'].includes(s.t);
 /* Réponse complète ? Une critique ratée exige une photo (point de vigilance de la présentation). */
 function ansOk(s,v,photo){if(v==null||v==='')return false;
  if(RICH(s)){if(s.k==='choice')return !!v.c;if(s.k==='sub')return SUBCRIT.every(c=>v.crit&&v.crit[c]);if(['title','pos','neg','text'].includes(s.k))return !!(v.txt&&v.txt.trim());return v.n!=null}
- if(s.t==='C'&&v==='non')return !!photo;return true}
+ return true} /* la photo d'un point critique est conseillée, jamais obligatoire */
 const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
 const rnd=x=>x==null?null:Math.round(x);
 /* Barème : section = points obtenus / possibles (Sans objet exclu), un bonus factuel par section, plafonné à 100 %.
@@ -522,7 +522,7 @@ Votre mission : séjourner à Alfred Hotels ${a.hotel} du ${fd(a.from)} au ${fd(
 3. Ouvrez votre espace personnel : ${link}
 4. À chaque moment du séjour (réservation, appel, arrivée, chambre, petit-déjeuner, départ), répondez à quelques questions : trois à dix minutes à chaque fois. Tout est enregistré au fur et à mesure, vous pouvez vous arrêter et reprendre quand vous voulez.
 5. Les moments s'ouvrent dans l'ordre du séjour : terminez-en un pour débloquer le suivant.
-6. Prenez en photo ce qui manque ou ce qui ne va pas. Pour un point critique (propreté, sécurité, facture), la photo est obligatoire.
+6. Prenez en photo ce qui manque ou ce qui ne va pas. Une photo est utile mais jamais obligatoire.
 7. Après le départ, donnez votre avis comme sur Booking, puis validez : votre questionnaire nous parvient automatiquement.
 ${a.notes?'\nConsignes particulières : '+a.notes+'\n':''}
 Ce lien est personnel : il n'ouvre que votre questionnaire. Gardez cet e-mail, il vous permettra de reprendre à tout moment.
@@ -622,7 +622,7 @@ function questionnaire(client){
  return `<section class="card"><div class="qhero"><div class="eyebrow">Alfred Hotels · ${esc(a.hotel)} · ${FORMATS[a.format].l} · ${CHANNELS[a.channel].l}${client?'':' · '+esc(a.client)}</div><h1>${client?(answered?'Bon retour':'Bienvenue dans l\'expérience client mystère')+(a.client&&a.client!=='Client mystère'?', '+esc(a.client.split(' ')[0]):''):esc('Client Mystère - '+FORMATS[a.format].l)}</h1><p class="lead">${client?`Votre séjour${a.from?' du '+fd(a.from)+' au '+fd(a.to):''} se vit en ${shown.length} moments, dans l'ordre. Terminez un moment pour ouvrir le suivant. Tout est enregistré au fur et à mesure.`:`Séjour ${fm(a.from)}${a.official?'':' · audit d\'entraînement'}. Les moments se remplissent dans l'ordre.`}</p>${client?'':`<button class="btn sec sm" onclick="saveQ();go('planning')">⏸ Pause</button>`}</div>
  <div class="progrow"><span><b class="pl">Mon avancement</b><br>${infos.filter(x=>x.ok).length} / ${shown.length} moments · ${answered} / ${total} réponses</span><div class="progress"><i style="width:${total?Math.round(answered/total*100):0}%"></i></div><span class="pill">${Q.saved?'Enregistré à '+Q.saved:'Enregistrement automatique'}</span></div>
  ${a.notes&&client?`<div class="notice" style="margin:12px 0 4px"><b style="font-weight:500">Consignes pour votre séjour</b><br>${esc(a.notes)}</div>`:''}
- ${missingPh?`<div class="notice warn" style="margin:12px 0 4px"><b style="font-weight:500">📷 ${missingPh} photo${missingPh>1?'s':''} obligatoire${missingPh>1?'s':''} manquante${missingPh>1?'s':''}</b><br>Un point critique répondu « Non » doit être accompagné d'une photo.</div>`:''}
+ 
  <h2 class="qh2">Mon parcours</h2>
  <div class="jlist">${infos.map(card).join('')}</div>
  <h2 class="qh2">📷 Mes photos des défauts et manques <span class="pill">${Q.defects.length}</span></h2>
@@ -650,7 +650,7 @@ function qBlock(s,num,hotel){const v=Q.answers[s.id];let ans='';
  else ans=`<div class="anss">${[['oui','Oui','d-gr'],['non','Non','d-rd'],['na','Sans objet','d-gy']].map(([k,l,d])=>`<button class="${k} ${v===k?'on':''}" onclick="setA(${s.id},'${k}')"><span class="dot ${d}"></span>${l}</button>`).join('')}</div>${(v==='non'||(s.free&&v==='oui'))?`<textarea style="margin-top:10px" placeholder="${s.t==='C'?'Point critique : décrivez précisément ce que vous avez constaté':s.free?'Racontez ce moment':'Que manquait-il ? (facultatif)'}" oninput="Q.comments[${s.id}]=this.value;saveQ(true)">${esc(Q.comments[s.id]||'')}</textarea>`:''}`;
  const critPh=s.t==='C'&&v==='non';
  return `<div class="q ${isAnswered(s)?'ok':''} ${critPh&&!Q.photos[s.id]?'need':''}"><span class="num">${num}</span><div><div class="txt">${esc(qText(s,hotel))}</div>${s.t==='C'?'<div class="tags"><span class="pill red">Point critique</span></div>':''}${refTile(s)}${ans}
- ${RICH(s)?'':`<div class="qtools"><label class="${critPh&&!Q.photos[s.id]?'phreq':''}" title="Ajouter une photo">📷${critPh&&!Q.photos[s.id]?' Photo obligatoire':''}<input type="file" accept="image/*" hidden onchange="addPhoto(${s.id},this)"></label>${Q.photos[s.id]?`<img src="${Q.photos[s.id].data||Q.photos[s.id].url}" alt="">`:''}${v!=='non'&&s.t!=='X'&&!s.free?`<button title="Ajouter un commentaire" onclick="Q.comments[${s.id}]=Q.comments[${s.id}]||' ';render()">💬</button>${Q.comments[s.id]?`<input type="text" style="flex:1" placeholder="Commentaire" value="${esc(Q.comments[s.id].trim())}" oninput="Q.comments[${s.id}]=this.value;saveQ(true)">`:''}`:''}</div>`}</div></div>`}
+ ${RICH(s)?'':`<div class="qtools"><label title="Ajouter une photo (facultatif)">📷${critPh&&!Q.photos[s.id]?' Photo conseillée':''}<input type="file" accept="image/*" hidden onchange="addPhoto(${s.id},this)"></label>${Q.photos[s.id]?`<img src="${Q.photos[s.id].data||Q.photos[s.id].url}" alt="">`:''}${v!=='non'&&s.t!=='X'&&!s.free?`<button title="Ajouter un commentaire" onclick="Q.comments[${s.id}]=Q.comments[${s.id}]||' ';render()">💬</button>${Q.comments[s.id]?`<input type="text" style="flex:1" placeholder="Commentaire" value="${esc(Q.comments[s.id].trim())}" oninput="Q.comments[${s.id}]=this.value;saveQ(true)">`:''}`:''}</div>`}</div></div>`}
 function stageView(client){
  const a=Q.a;const st=STAGE(Q.stage);const all=qList().filter(s=>s.st===st.k);const g=all.filter(counted);const done=g.filter(isAnswered).length;const left=g.length-done;
  const shown=STAGES.filter(x=>qList().some(s=>s.st===x.k));const i=shown.indexOf(st);const next=shown[i+1];
@@ -671,7 +671,7 @@ function stageView(client){
 function zoomRef(src,t){openModal(`<div class="zoom"><img src="${src}" alt=""><p class="sub" style="text-align:center;margin-top:10px">${t}</p></div>`)}
 function validateBuffet(){const b=qList().filter(s=>s.t==='B'&&s.st===Q.stage);b.forEach(s=>{if(Q.answers[s.id]!=='non')Q.answers[s.id]='oui'});saveQ(true);render();const n=b.filter(s=>Q.answers[s.id]==='non').length;toast('Buffet validé · '+n+' absent'+(n>1?'s':''))}
 function toggleBuffet(id){const b=qList().filter(s=>s.t==='B'&&s.st===Q.stage);const validated=b.every(s=>Q.answers[s.id]);if(Q.answers[id]==='non'){if(validated)Q.answers[id]='oui';else delete Q.answers[id]}else Q.answers[id]='non';saveQ(true);render()}
-function finishStage(k){const left=stInfo(k).left;if(left){toast('Il reste '+left+' question'+(left>1?'s':'')+' dans ce moment');return}const miss=qList().filter(s=>s.st===k&&s.t==='C'&&Q.answers[s.id]==='non'&&!Q.photos[s.id]).length;if(miss){toast('Ajoutez la photo obligatoire du point critique');return}Q.stageDone[k]=true;saveQ(true);Q.view='home';Q.stage=null;const sh=shownStages();const nx=sh[sh.findIndex(x=>x.k===k)+1];toast(STAGE(k).title+' : terminé ✓'+(nx?' · « '+nx.me+' » est ouvert':''));render();window.scrollTo(0,0)}
+function finishStage(k){const left=stInfo(k).left;if(left){toast('Il reste '+left+' question'+(left>1?'s':'')+' dans ce moment');return}Q.stageDone[k]=true;saveQ(true);Q.view='home';Q.stage=null;const sh=shownStages();const nx=sh[sh.findIndex(x=>x.k===k)+1];toast(STAGE(k).title+' : terminé ✓'+(nx?' · « '+nx.me+' » est ouvert':''));render();window.scrollTo(0,0)}
 function shrink(file,cb){const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{const cv=document.createElement('canvas');const k=Math.min(1,1200/Math.max(img.width,img.height));cv.width=Math.round(img.width*k);cv.height=Math.round(img.height*k);cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);cb(cv.toDataURL('image/jpeg',.72))};img.src=r.result};r.readAsDataURL(file)}
 /* Une photo est envoyée dès qu'elle est ajoutée : rien n'est perdu si le téléphone s'éteint. */
 async function upOne(p){if(p.url)return {url:p.url,id:p.id};if(API.on){try{const j=await API.post({action:'upload',name:'cm-'+(Q.a?Q.a.id:'plan')+'-'+Date.now()+'.jpg',data:p.data.split(',')[1],mime:'image/jpeg'});return {url:j.url,id:j.id}}catch(e){}}if(DBS.assets){try{const blob=await (await fetch(p.data)).blob();const up=await DBS.assets.upload(blob);return {url:up.url,id:up.id}}catch(e){}}return {data:p.data}}
@@ -683,7 +683,7 @@ async function submitQ(){
  const a=Q.a;const sh=shownStages();const notDone=sh.filter(st=>!stInfo(st.k).ok);
  if(notDone.length){toast('Terminez d\'abord « '+notDone[0].me+' »');return}
  const missPh=qList().filter(s=>s.t==='C'&&Q.answers[s.id]==='non'&&!Q.photos[s.id]).length;
- if(missPh){openModal(`<h2>Photo obligatoire manquante</h2><p class="sub">${missPh} point${missPh>1?'s':''} critique${missPh>1?'s':''} répondu${missPh>1?'s':''} « Non » sans photo. Ajoutez-la avant de valider.</p><div class="mfoot" style="justify-content:flex-end"><button class="btn" onclick="closeAll()">Compris</button></div>`);return}
+
  const btn=document.getElementById('q-send');if(btn){btn.disabled=true;btn.textContent='Envoi en cours…'}
  const resp={auditId:a.id,format:a.format,hotel:a.hotel,channel:a.channel,from:a.from,to:a.to,official:a.official!==false,client:Q.comments.r0||a.client,email:a.email||'',answers:Q.answers,comments:Q.comments,photos:{},defects:[],submittedAt:new Date().toISOString()};
  let sent=false;
@@ -894,7 +894,8 @@ function histOf(r){const y=(r.from||'').slice(0,4);return REPORTS.filter(x=>x.ho
 const typeRates=x=>{const L=stdsFor(x.format,x.channel,x.hotel);const rt=f=>{const v=L.filter(f).map(s=>x.answers[s.id]).filter(a=>a==='oui'||a==='non');return v.length?Math.round(v.filter(a=>a==='oui').length/v.length*100):null};const bx=L.filter(s=>s.t==='X');
  return {N:rt(s=>s.t==='N'),E:rt(s=>s.t==='E'||s.t==='C'||s.t==='B'),X:bx.length?Math.round(bx.filter(s=>x.answers[s.id]==='oui'&&String(x.comments[s.id]||'').trim()).length/bx.length*100):null}};
 
-async function exportExcel(id){const r=REPORTS.find(x=>x.id===id);if(!r)return;toast('Préparation du fichier Excel…');
+async function exportExcel(id){try{await exportExcelRun(id)}catch(e){console.error(e);toast('Le fichier Excel n\'a pas pu être créé : '+(e&&e.message||e))}}
+async function exportExcelRun(id){const r0=REPORTS.find(x=>x.id===id);if(!r0)return;const r={...r0,from:r0.from||r0.date||TODAY,answers:r0.answers||{},comments:r0.comments||{}};toast('Préparation du fichier Excel…');
  try{await loadLib('excel')}catch(e){toast("Le module Excel n'a pas pu être chargé (connexion)");return}
  const list=stdsFor(r.format,r.channel,r.hotel),A=r.answers,C=r.comments;
  const wb=new ExcelJS.Workbook();wb.calcProperties.fullCalcOnLoad=true;
@@ -964,12 +965,13 @@ async function exportExcel(id){const r=REPORTS.find(x=>x.id===id);if(!r)return;t
  const buf=await wb.xlsx.writeBuffer();saveBlob(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),fileBase(r)+'.xlsx');toast('Fichier Excel téléchargé')}
 
 /* ---------- Présentation (charte du rapport client mystère : ABC Diatype Edu, vert #325727, croix #974528, fond #fffef1) ---------- */
-async function toData(url){if(!url)return null;if(url.startsWith('data:'))return url;const dm=url.match(/drive\.google\.com\/thumbnail\?id=([^&]+)/);if(dm&&API.on){try{const j=await API.get({photo:dm[1]});return j.ok?'data:'+j.mime+';base64,'+j.data:null}catch(err){return null}}try{const b=await (await fetch(url)).blob();if(!b.type.startsWith('image'))return null;return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b)})}catch(e){return null}}
+async function toData(url){if(!url)return null;if(url.startsWith('data:'))return url;const dm=url.match(/drive\.google\.com\/thumbnail\?id=([^&]+)/);if(dm&&API.on){try{const j=await API.get({photo:dm[1]});return j&&j.ok&&j.data?'data:'+(j.mime||'image/jpeg')+';base64,'+j.data:null}catch(err){return null}}try{const rs=await fetch(url);if(!rs.ok)return null;const b=await rs.blob();if(!b.type.startsWith('image'))return null;return await new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b)})}catch(e){return null}}
 const imgSize=d=>new Promise(res=>{const i=new Image();i.onload=()=>res([i.naturalWidth,i.naturalHeight]);i.onerror=()=>res([16,9]);i.src=d});
 /* Photos du rapport : intégrées dans la version Claude, sinon lues dans le dossier rapport/ du site au moment de l'export */
 const DECK_CACHE={};
 async function deckImg(k){if(k in DECK_CACHE)return DECK_CACHE[k];const el=document.getElementById('deck-'+k);let d=el?el.textContent.trim():null;if(!d){const f=k+(k==='logo'?'.png':'.jpg');d=await toData('rapport/'+f)||await toData(f)}return DECK_CACHE[k]=d}
-async function exportPpt(id){const r=REPORTS.find(x=>x.id===id);if(!r)return;toast('Préparation de la présentation…');
+async function exportPpt(id){try{await exportPptRun(id)}catch(e){console.error(e);toast('La présentation n\'a pas pu être créée : '+(e&&e.message||e))}}
+async function exportPptRun(id){const r0=REPORTS.find(x=>x.id===id);if(!r0)return;const r={...r0,from:r0.from||r0.date||TODAY,answers:r0.answers||{},comments:r0.comments||{}};toast('Préparation de la présentation…');
  try{await loadLib('ppt')}catch(e){toast("Le module PowerPoint n'a pas pu être chargé (connexion)");return}
  const list=stdsFor(r.format,r.channel,r.hotel),A=r.answers,C=r.comments,sc=r.sc,H=histOf(r);
  const P={bg:'FFFEF1',g:'325727',terra:'974528',ink:'2A0C0D',ok:'C9D6C4',ko:'FF9999',bd:'728D76',zebra:'EBEFE1',star:'F4B23E',w:'FFFEF1'};const FF='ABC Diatype Edu';
@@ -1072,7 +1074,7 @@ async function exportPpt(id){const r=REPORTS.find(x=>x.id===id);if(!r)return;toa
   const t=sv('text');if(t&&t.txt){s.addShape(pres.shapes.RECTANGLE,{x:7.6,y:6.1,w:5.2,h:0.8,fill:{color:P.ok},line:{type:'none'}});T(s,[{text:'Ce qui aurait rendu le séjour parfait : ',options:{bold:true,color:P.g}},{text:t.txt,options:{italic:true}}],{x:7.7,y:6.12,w:5,h:0.76,fontSize:10,valign:'middle'})}}
  /* 8. Photos du séjour (grille comme le modèle) */
  const phs=[...Object.entries(r.photos||{}).map(([k,p])=>{const q=list.find(x=>String(x.id)===String(k));return {u:p&&(p.url||p.data),t:q?qText(q,r.hotel):'Photo'}}),...(r.defects||[]).map(p=>({u:p.url||p.data,t:p.caption||'Défaut signalé'}))].filter(p=>p.u);
- let lost=0;const imgs=[];for(const p of phs){const d=await toData(p.u);if(d)imgs.push({...p,d});else lost++}
+ let lost=0;const imgs=[];for(const p of phs){const d=await toData(p.u);if(d&&/^data:image\/(jpeg|jpg|png|gif|webp);base64,/.test(d)&&(await imgSize(d))[0]>16)imgs.push({...p,d});else lost++}
  for(let i=0;i<imgs.length;i+=6){const s=pres.addSlide();s.background={color:P.bg};for(const [j,p] of imgs.slice(i,i+6).entries()){const x=0.6+(j%3)*4.15,y=0.5+Math.floor(j/3)*3.5,bw=3.75,bh=2.7;const [w,h]=await imgSize(p.d);
    s.addImage({data:p.d,x,y,w:bw,h:bw*h/w,sizing:{type:'cover',w:bw,h:bh}});T(s,short(p.t,60),{x,y:y+2.75,w:bw,h:0.35,fontSize:9,italic:true,color:P.g,align:'center'})}}
  /* 9. Merci */
