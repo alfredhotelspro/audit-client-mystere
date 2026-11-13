@@ -863,12 +863,14 @@ function report(){
 
 
 /* ===== Exports d'un rapport : Excel (modèle « Client mystère ») et présentation PowerPoint (importable dans Canva) ===== */
-const LIBS={excel:['https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js','ExcelJS'],ppt:['https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js','PptxGenJS']};
-function loadLib(k){const [u,g]=LIBS[k];return window[g]?Promise.resolve():new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>ko(new Error('lib'));document.head.appendChild(s)})}
+/* Modules chargés à la demande : d'abord le dossier libs/ du site, sinon deux CDN publics */
+const LIBS={excel:[['libs/exceljs.min.js','https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js','https://unpkg.com/exceljs@4.4.0/dist/exceljs.min.js'],'ExcelJS'],ppt:[['libs/pptxgen.bundle.js','https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js','https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js'],'PptxGenJS']};
+const addScript=u=>new Promise((ok,ko)=>{const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>{s.remove();ko(new Error('lib'))};document.head.appendChild(s)});
+async function loadLib(k){const [us,g]=LIBS[k];for(const u of us){if(window[g])return;try{await addScript(u)}catch(e){}}if(!window[g])throw new Error('lib')}
 function saveBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500)}
 const SECLAB={Accueil:'Accueil',Produit:'Le produit','Petit-déjeuner':'Le petit-déjeuner',Service:'Le service','Conformité':'La conformité'};
 const XTYPE={N:'Normal',E:'Essentiel',C:'Critique',B:'Essentiel',X:'Bonus',R:'Ressenti',M:'Marque',D:'Digital',U:'Upselling',H:'Hors note',S:'Sondage',A:'Avis'};
-const fileBase=r=>`Client mystère - ${r.hotel} - ${FORMATS[r.format].l} - ${fm(r.from)}`.replace(/[\\/:*?"<>|]/g,'');
+const fileBase=r=>`Client mystère - ${r.hotel} - ${FORMATS[r.format].l} - ${fm(r.from)}`.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\\/:*?"<>|·]/g,'').replace(/\s+/g,' ');
 function ansTxt(s,v){if(v==null||v==='')return '';if(v==='oui')return 'Oui';if(v==='non')return 'Non';if(v==='na')return 'N/A';
  if(typeof v==='object'){if(v.crit)return Object.entries(v.crit).map(([k,n])=>k+' '+n+'/5').join(' · ');if(v.c)return v.c;if(v.txt!=null)return v.txt;if(v.n!=null)return s.k==='nps'?v.n+'/10':v.n+'/5'}return String(v)}
 function ptsOf(s,v,com){if(s.t==='X')return v==='oui'&&String(com||'').trim()?1:0;if(!PTS[s.t]||v!=='non')return PTS[s.t]?0:'';return -Math.round(PTS[s.t]*100)/100}
