@@ -968,7 +968,7 @@ async function toData(url){if(!url)return null;if(url.startsWith('data:'))return
 const imgSize=d=>new Promise(res=>{const i=new Image();i.onload=()=>res([i.naturalWidth,i.naturalHeight]);i.onerror=()=>res([16,9]);i.src=d});
 /* Photos du rapport : intégrées dans la version Claude, sinon lues dans le dossier rapport/ du site au moment de l'export */
 const DECK_CACHE={};
-async function deckImg(k){if(k in DECK_CACHE)return DECK_CACHE[k];const el=document.getElementById('deck-'+k);let d=el?el.textContent.trim():null;if(!d)d=await toData('rapport/'+k+(k==='logo'?'.png':'.jpg'));return DECK_CACHE[k]=d}
+async function deckImg(k){if(k in DECK_CACHE)return DECK_CACHE[k];const el=document.getElementById('deck-'+k);let d=el?el.textContent.trim():null;if(!d){const f=k+(k==='logo'?'.png':'.jpg');d=await toData('rapport/'+f)||await toData(f)}return DECK_CACHE[k]=d}
 async function exportPpt(id){const r=REPORTS.find(x=>x.id===id);if(!r)return;toast('Préparation de la présentation…');
  try{await loadLib('ppt')}catch(e){toast("Le module PowerPoint n'a pas pu être chargé (connexion)");return}
  const list=stdsFor(r.format,r.channel,r.hotel),A=r.answers,C=r.comments,sc=r.sc,H=histOf(r);
