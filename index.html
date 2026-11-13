@@ -970,116 +970,135 @@ const imgSize=d=>new Promise(res=>{const i=new Image();i.onload=()=>res([i.natur
 /* Photos du rapport : intégrées dans la version Claude, sinon lues dans le dossier rapport/ du site au moment de l'export */
 const DECK_CACHE={};
 async function deckImg(k){if(k in DECK_CACHE)return DECK_CACHE[k];const el=document.getElementById('deck-'+k);let d=el?el.textContent.trim():null;if(!d){const f=k+(k==='logo'?'.png':'.jpg');d=await toData('rapport/'+f)||await toData(f)}return DECK_CACHE[k]=d}
+/* Mise en page automatique : on estime les lignes de chaque texte pour dimensionner les cases, sans jamais couper le texte. */
+const PPT_MAX=25;
+function pptLines(text,widthIn,fs){const cpi=72/(fs*0.52);const max=Math.max(4,Math.floor((widthIn-0.2)*cpi));let n=0;String(text||'').split('\n').forEach(par=>{let l=0;n++;par.split(/\s+/).filter(Boolean).forEach(w=>{if(l&&l+1+w.length>max){n++;l=w.length}else l+=(l?1:0)+w.length})});return Math.max(1,n)}
+const pptH=(lines,fs)=>lines*fs*1.22/72+0.12;
 async function exportPpt(id){try{await exportPptRun(id)}catch(e){console.error(e);toast('La présentation n\'a pas pu être créée : '+(e&&e.message||e))}}
 async function exportPptRun(id){const r0=REPORTS.find(x=>x.id===id);if(!r0)return;const r={...r0,from:r0.from||r0.date||TODAY,answers:r0.answers||{},comments:r0.comments||{}};toast('Préparation de la présentation…');
  try{await loadLib('ppt')}catch(e){toast("Le module PowerPoint n'a pas pu être chargé (connexion)");return}
+ /* taille du texte : 11 pt, réduite à 10 puis 9 pt seulement si la présentation dépasse 25 slides */
+ for(const fs of [11,10,9]){const n=await buildPpt(r,fs,true);if(n<=PPT_MAX||fs===9){await buildPpt(r,fs,false);return}}}
+async function buildPpt(r,B,dry){
  const list=stdsFor(r.format,r.channel,r.hotel),A=r.answers,C=r.comments,sc=r.sc,H=histOf(r);
  const P={bg:'FFFEF1',g:'325727',terra:'974528',ink:'2A0C0D',ok:'C9D6C4',ko:'FF9999',bd:'728D76',zebra:'EBEFE1',star:'F4B23E',w:'FFFEF1'};const FF='ABC Diatype Edu';
  const pres=new PptxGenJS();pres.layout='LAYOUT_WIDE';pres.title=fileBase(r);pres.theme={headFontFace:FF,bodyFontFace:FF};
- const MONTH=fm(r.from).toUpperCase();const PROF=`CLIENT MYSTERE PROFIL ${FORMATS[r.format].l.toUpperCase()}`;const MOIS=MN[+r.from.slice(5,7)-1];
+ const MONTH=fm(r.from).toUpperCase();const PROF=`CLIENT MYSTÈRE PROFIL ${FORMATS[r.format].l.toUpperCase()}`;const MI=+r.from.slice(5,7)-1;const MOIS=MN[MI];const MSH=MS[MI].toUpperCase();
  const T=(s,text,o)=>s.addText(text,{fontFace:FF,color:P.ink,margin:0,...o});
- /* en-tête : deux filets, profil à gauche, mois à droite, puis le titre vert en gras */
- const base=(title,sub,subInline)=>{const s=pres.addSlide();s.background={color:P.bg};
-  s.addShape(pres.shapes.LINE,{x:0.43,y:0.37,w:12.47,h:0,line:{color:P.ink,width:0.75}});s.addShape(pres.shapes.LINE,{x:0.43,y:0.59,w:12.47,h:0,line:{color:P.ink,width:0.75}});
-  T(s,PROF,{x:0.43,y:0.39,w:6,h:0.18,fontSize:7,bold:true});T(s,MONTH,{x:6.9,y:0.39,w:6,h:0.18,fontSize:7,bold:true,align:'right'});
-  if(subInline){T(s,[{text:title,options:{fontSize:34,bold:true,color:P.g}},{text:'   '+sub,options:{fontSize:20,italic:true,color:P.g}}],{x:0.43,y:0.8,w:12.4,h:0.75,valign:'middle'})}
-  else{T(s,title,{x:0.43,y:0.8,w:12.4,h:0.75,fontSize:34,bold:true,color:P.g,valign:'middle'});if(sub)T(s,sub,{x:0.43,y:1.5,w:12.4,h:0.4,fontSize:20,italic:true,color:P.g})}
-  return s};
- const photo=async(s,k,x,y,w,h)=>{const d=await deckImg(k);if(!d)return false;const [iw,ih]=await imgSize(d);s.addImage({data:d,x,y,w,h:w*ih/iw,sizing:{type:'cover',w,h}});return true};
- /* intercalaire : photo encadrée de crème, titre blanc en haut à gauche, grand numéro crème en bas à droite */
- const divider=async(num,title,k)=>{const s=pres.addSlide();s.background={color:P.bg};await photo(s,k,0.2,0.2,12.93,7.1);
-  T(s,title,{x:0.55,y:0.45,w:7,h:1.4,fontSize:32,bold:true,color:'FFFFFF',valign:'top'});T(s,num,{x:7.6,y:3.9,w:5.3,h:3.3,fontSize:200,bold:true,color:P.w,align:'right',valign:'bottom'})};
- const mark=v=>v==='oui'?{text:'✓',options:{color:P.g,align:'center',fontSize:14}}:v==='non'?{text:'X',options:{color:P.terra,align:'center',fontSize:13}}:{text:v==='na'?'N/A':'—',options:{color:P.ink,align:'center',fontSize:10}};
+ const X0=0.43,W=12.47,TOP=1.75,BOTTOM=6.95,GAP=0.3;let nSlides=0;
+ const img=async(s,o)=>{if(!dry)s.addImage(o)};
+ const base=(title,sub)=>{const s=pres.addSlide();nSlides++;s.background={color:P.bg};
+  s.addShape(pres.shapes.LINE,{x:X0,y:0.3,w:W,h:0,line:{color:P.ink,width:0.75}});s.addShape(pres.shapes.LINE,{x:X0,y:0.58,w:W,h:0,line:{color:P.ink,width:0.75}});
+  T(s,PROF,{x:X0,y:0.32,w:6,h:0.24,fontSize:9,bold:true,valign:'middle'});T(s,MONTH,{x:6.9,y:0.32,w:6,h:0.24,fontSize:9,bold:true,align:'right',valign:'middle'});
+  T(s,[{text:title,options:{fontSize:30,bold:true,color:P.g}},...(sub?[{text:'   '+sub,options:{fontSize:18,italic:true,color:P.g}}]:[])],{x:X0,y:0.72,w:W,h:0.8,valign:'middle'});return s};
+ const photo=async(s,k,x,y,w,h)=>{if(dry)return true;const d=await deckImg(k);if(!d)return false;const [iw,ih]=await imgSize(d);s.addImage({data:d,x,y,w,h:w*ih/iw,sizing:{type:'cover',w,h}});return true};
+ const divider=async(num,title,k)=>{const s=pres.addSlide();nSlides++;s.background={color:P.bg};await photo(s,k,0.2,0.2,12.93,7.1);
+  T(s,title,{x:0.55,y:0.45,w:8,h:1.4,fontSize:36,bold:true,color:'FFFFFF',valign:'top'});T(s,num,{x:7.6,y:3.9,w:5.3,h:3.3,fontSize:200,bold:true,color:P.w,align:'right',valign:'bottom'})};
+ const mark=v=>v==='oui'?{text:'✓',options:{color:P.g,align:'center',fontSize:B+3}}:v==='non'?{text:'X',options:{color:P.terra,align:'center',fontSize:B+2,bold:true}}:{text:v==='na'?'N/A':'—',options:{color:P.ink,align:'center',fontSize:B}};
  const ytd=s=>{const v=H.map(x=>x.answers[s.id]).filter(a=>a==='oui'||a==='non');return v.length?[v.filter(a=>a==='oui').length+'/'+v.length,v.filter(a=>a==='non').length+'/'+v.length]:['',''];};
- const short=(t,n=70)=>(t=t.replace(/ \(note sur 5\)/,'')).length>n?t.slice(0,n-2)+'…':t;
- /* tableau de questions : sans bordure, lignes alternées, ✓ verts et X terracotta */
- const qTable=(s,x,qs,head,w=6.1,fs=9)=>{const lw=w-2.1;const z=i=>i%2===0?{fill:{color:P.zebra}}:{};
-  const rows=[[{text:head,options:{bold:true,fontSize:fs+1}},{text:MOIS.toUpperCase(),options:{bold:true,fontSize:fs,align:'center'}},{text:'YTD+*',options:{bold:true,fontSize:fs,align:'center'}},{text:'YTD-*',options:{bold:true,fontSize:fs,align:'center'}}],
-   ...qs.map((q,i)=>{const [p,n]=ytd(q);const m=mark(A[q.id]);return [{text:short(qText(q,r.hotel),Math.round(lw*16)),options:{fontSize:fs,...z(i)}},{...m,options:{...m.options,...z(i)}},{text:p,options:{fontSize:fs+1,align:'center',...z(i)}},{text:n,options:{fontSize:fs+1,align:'center',...z(i)}}]})];
-  s.addTable(rows,{x,y:2.0,w,colW:[lw,0.8,0.65,0.65],rowH:0.36,fontFace:FF,color:P.ink,border:{type:'none'},valign:'middle',margin:[0,0.08,0,0.08]})};
- const foot=s=>T(s,'*Depuis combien d\'audits cette question a été positive/négative',{x:0.43,y:7.05,w:9,h:0.25,fontSize:9,italic:true});
- const qSlides=(title,qs,head)=>{for(let i=0;i<qs.length;i+=26){const ch=qs.slice(i,i+26);const s=base(title);qTable(s,0.43,ch.slice(0,13),head);if(ch.length>13)qTable(s,6.8,ch.slice(13),head);foot(s)}};
- const mlab=x=>{const m=+x.from.slice(5,7)-1;return m===8?'Sept.':MN[m].length>6?MS[m].charAt(0).toUpperCase()+MS[m].slice(1):MN[m]};
- const cell=(v,fs=12)=>({text:v==null?'/':v+'%',options:{align:'center',fill:{color:v==null?P.ok:v>=OBJ?P.ok:P.ko},fontSize:fs,color:'000000'}});
- const hcell=(t,fs=12)=>({text:t,options:{bold:true,align:'center',fontSize:fs,color:P.g}});
- const lcell=(t,fs=12)=>({text:t,options:{bold:true,align:'center',fontSize:fs,color:'000000'}});
- const scoreTable=(s,rows,firstW,y=1.75,rowH=0.6)=>{const n=rows[0].length-1;s.addTable(rows,{x:0.6,y,w:Math.min(12.1,firstW+n*1.05),colW:[firstW,...Array(n).fill(Math.min(1.05,(12.1-firstW)/n))],rowH,fontFace:FF,border:{type:'solid',pt:0.75,color:P.bd},valign:'middle'})};
+ const clean=t=>String(t||'').replace(/ \(note sur 5\)/,'');
+ const foot=s=>T(s,"*Sur combien d'audits de l'année cette question a été positive / négative",{x:X0,y:7.02,w:10,h:0.26,fontSize:9,italic:true});
+ const ZB=i=>i%2===0?{fill:{color:P.zebra}}:{};
+ /* Tableau en flux : les lignes remplissent une ou deux colonnes par slide, chaque case a la hauteur de son texte */
+ const flow=(mkSlide,head,rows,colW,o={})=>{const ncol=o.ncol||1,top=o.top||TOP,avail=(o.bottom||BOTTOM)-top,tw=colW.reduce((a,b)=>a+b,0);const hh=pptH(1,B)+0.04;
+  const hs=rows.map(rw=>rw.span?pptH(pptLines(rw.cells[0].text,tw,B),B)+0.04:Math.max(...rw.cells.map((c,i)=>pptH(pptLines(c.text,colW[i],(c.options&&c.options.fontSize)||B),(c.options&&c.options.fontSize)||B))));
+  const split=lim=>{const pg=[];let cur=[],h=hh;rows.forEach((rw,i)=>{const keep=rw.span&&i+1<rows.length?hs[i+1]:0;/* un intertitre reste avec sa première ligne */if(cur.length&&h+hs[i]+keep>lim){pg.push(cur);cur=[];h=hh}cur.push(i);h+=hs[i]});if(cur.length)pg.push(cur);return pg};
+  let cols=split(avail);const nsl=Math.ceil(cols.length/ncol);const tot=hs.reduce((a,b)=>a+b,0);
+  for(let lim=hh+tot/(nsl*ncol);lim<=avail;lim+=0.08){const c2=split(lim);if(Math.ceil(c2.length/ncol)===nsl){cols=c2;break}}
+  for(let si=0;si<nsl;si++){const s=mkSlide(si,nsl);cols.slice(si*ncol,si*ncol+ncol).forEach((pg,ci)=>{
+    s.addTable([head,...pg.map(i=>rows[i].cells)],{x:(o.x||X0)+ci*(tw+GAP),y:top,w:tw,colW,rowH:[hh,...pg.map(i=>hs[i])],fontFace:FF,fontSize:B,color:P.ink,border:o.border||{type:'none'},valign:'middle',margin:[0.03,0.08,0.03,0.08]})});if(o.after)o.after(s)}return nsl};
+ const CW2=(W-GAP)/2;const QC2=[CW2-2.25,0.75,0.75,0.75];
+ const qHead=lab=>[{text:lab,options:{bold:true,fontSize:B}},{text:MSH,options:{bold:true,fontSize:B,align:'center'}},{text:'YTD+*',options:{bold:true,fontSize:B,align:'center'}},{text:'YTD-*',options:{bold:true,fontSize:B,align:'center'}}];
+ const qRow=(q,i,extra)=>{const [p,n]=ytd(q);const m=mark(A[q.id]);return {cells:[{text:clean(qText(q,r.hotel))+(extra||''),options:{fontSize:B,...ZB(i)}},{...m,options:{...m.options,...ZB(i)}},{text:p,options:{fontSize:B,align:'center',...ZB(i)}},{text:n,options:{fontSize:B,align:'center',...ZB(i)}}]}};
+ const span=(t,fill)=>({span:true,cells:[{text:t,options:{bold:true,fontSize:B,color:P.g,colspan:4,fill:{color:fill||P.ok}}}]});
+ const qSlides=(title,sub,rows,head)=>flow((si,n)=>base(title+(n>1?` (${si+1}/${n})`:''),sub),qHead(head),rows,QC2,{ncol:2,after:foot});
+ const mlab=x=>{const m=+x.from.slice(5,7)-1;return MS[m].charAt(0).toUpperCase()+MS[m].slice(1)};
+ const cell=(v,fs=B+1)=>({text:v==null?'/':v+'%',options:{align:'center',fill:{color:v==null?P.ok:v>=OBJ?P.ok:P.ko},fontSize:fs,color:'000000'}});
+ const hcell=(t,fs=B+1)=>({text:t,options:{bold:true,align:'center',fontSize:fs,color:P.g}});
+ const lcell=(t,fs=B+1)=>({text:t,options:{bold:true,align:'center',fontSize:fs,color:'000000'}});
+ const scoreTable=(s,rows,firstW,y,rowH)=>{const n=rows[0].length-1;const cw=Math.min(1.2,(W-firstW)/n);s.addTable(rows,{x:X0,y,w:firstW+n*cw,colW:[firstW,...Array(n).fill(cw)],rowH,fontFace:FF,border:{type:'solid',pt:0.75,color:P.bd},valign:'middle'})};
  const ytdAvg=f=>{const v=H.map(f).filter(x=>x!=null);return v.length?Math.round(avg(v)):null};
- const stars=n=>'★'.repeat(n||0);
+ const stars=n=>'★'.repeat(n||0)+'☆'.repeat(Math.max(0,5-(n||0)));
+ const box=(s,text,x,y,w,maxH,fs)=>{const h=Math.min(maxH,pptH(pptLines(text,w-0.2,fs),fs)+0.12);s.addShape(pres.shapes.RECTANGLE,{x,y,w,h,fill:{color:P.ok},line:{type:'none'}});T(s,text,{x:x+0.1,y:y+0.04,w:w-0.2,h:h-0.08,fontSize:fs,italic:true,align:'center',valign:'middle',fit:'shrink'});return h};
 
  /* 1. Couverture */
- {const s=pres.addSlide();s.background={color:P.g};const ck='cover-'+(HOTEL_SLUG[r.hotel]||'');await photo(s,(await deckImg(ck))?ck:'mat',0,0,13.333,7.5);s.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:13.333,h:7.5,fill:{color:'000000',transparency:84},line:{type:'none'}});
-  const lg=await deckImg('logo');if(lg){const [lw,lh]=await imgSize(lg);const hh=1.25;s.addImage({data:lg,x:(13.333-hh*lw/lh)/2,y:4.25,w:hh*lw/lh,h:hh})}
-  T(s,r.hotel.toUpperCase(),{x:0.45,y:0.45,w:6,h:0.3,fontSize:11,color:'FFFFFF'});T(s,MONTH,{x:6.9,y:0.45,w:6,h:0.3,fontSize:11,color:'FFFFFF',align:'right'});
+ {const s=pres.addSlide();nSlides++;s.background={color:P.g};const ck='cover-'+(HOTEL_SLUG[r.hotel]||'');await photo(s,(dry||await deckImg(ck))?ck:'mat',0,0,13.333,7.5);s.addShape(pres.shapes.RECTANGLE,{x:0,y:0,w:13.333,h:7.5,fill:{color:'000000',transparency:84},line:{type:'none'}});
+  if(!dry){const lg=await deckImg('logo');if(lg){const [lw,lh]=await imgSize(lg);const hh=1.25;s.addImage({data:lg,x:(13.333-hh*lw/lh)/2,y:4.25,w:hh*lw/lh,h:hh})}}
+  T(s,r.hotel.toUpperCase(),{x:0.45,y:0.4,w:6,h:0.35,fontSize:12,color:'FFFFFF'});T(s,MONTH,{x:6.9,y:0.4,w:6,h:0.35,fontSize:12,color:'FFFFFF',align:'right'});
   T(s,[{text:'ALFRED HOTELS',options:{fontSize:40,bold:true,breakLine:true}},{text:'Client mystère',options:{fontSize:34,bold:true}}],{x:2,y:1.45,w:9.33,h:1.7,color:'FFFEF1',align:'center',valign:'middle'})}
  /* 2. Fiche récapitulative */
  {const s=base('Fiche récapitulative','client mystère '+MOIS.toLowerCase());
-  s.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.43,y:2.2,w:5.6,h:4.1,fill:{color:P.bg},line:{color:'000000',width:1.5},rectRadius:0.12});
-  s.addShape(pres.shapes.OVAL,{x:1.0,y:3.55,w:0.85,h:0.85,fill:{color:'000000'},line:{type:'none'}});s.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.7,y:4.45,w:1.45,h:0.95,fill:{color:'000000'},line:{type:'none'},rectRadius:0.45});
-  T(s,'INFORMATIONS SEJOUR',{x:2.5,y:2.4,w:3.3,h:0.3,fontSize:11,color:P.g});
-  [['NOM',r.auditor],['PROFIL',FORMATS[r.format].l],['CANAL',CHANNELS[r.channel]?CHANNELS[r.channel].l:r.channel],['ARRIVEE',fd(r.from)],['DEPART',r.to?fd(r.to):'—'],['CHAMBRE',C.r1||'—']].forEach(([k,v],i)=>{const y=2.85+i*0.55;T(s,k,{x:2.5,y,w:1.3,h:0.35,fontSize:10});T(s,String(v),{x:3.85,y,w:2,h:0.35,fontSize:10,italic:true,color:P.g});if(i<5)s.addShape(pres.shapes.LINE,{x:2.5,y:y+0.44,w:3.3,h:0,line:{color:'000000',width:0.5}})});
+  s.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:X0,y:1.9,w:5.7,h:4.5,fill:{color:P.bg},line:{color:'000000',width:1.5},rectRadius:0.12});
+  s.addShape(pres.shapes.OVAL,{x:0.95,y:3.45,w:0.85,h:0.85,fill:{color:'000000'},line:{type:'none'}});s.addShape(pres.shapes.ROUNDED_RECTANGLE,{x:0.65,y:4.35,w:1.45,h:0.95,fill:{color:'000000'},line:{type:'none'},rectRadius:0.45});
+  T(s,'INFORMATIONS SÉJOUR',{x:2.4,y:2.05,w:3.6,h:0.35,fontSize:12,bold:true,color:P.g});
+  [['NOM',r.auditor],['PROFIL',FORMATS[r.format].l],['CANAL',CHANNELS[r.channel]?CHANNELS[r.channel].l:r.channel],['ARRIVÉE',fd(r.from)],['DÉPART',r.to?fd(r.to):'—'],['CHAMBRE',C.r1||'—']].forEach(([k,v],i)=>{const y=2.5+i*0.62;T(s,k,{x:2.4,y,w:1.25,h:0.45,fontSize:12,valign:'middle'});T(s,String(v),{x:3.65,y,w:2.35,h:0.45,fontSize:12,italic:true,color:P.g,valign:'middle',fit:'shrink'});if(i<5)s.addShape(pres.shapes.LINE,{x:2.4,y:y+0.52,w:3.6,h:0,line:{color:'000000',width:0.5}})});
   const pb=list.filter(q=>q.sub==='Gestion des imprévus').map(q=>C[q.id]).filter(Boolean).join(' ')||(sc.crit.length?sc.crit.map(q=>qText(q,r.hotel)).join(' · '):'Aucun');
-  const blocks=[['DEMANDE SPECIFIQUE',C.r4||'Aucune'],['PROBLEME RENCONTRE',pb],['RETOUR EXPERIENCE GLOBAL',C.r3||'—']];
-  T(s,[...blocks.flatMap(([k,v])=>[{text:k,options:{fontSize:13,color:P.g,breakLine:true}},{text:String(v).slice(0,260),options:{fontSize:13,italic:true,breakLine:true}},{text:' ',options:{fontSize:9,breakLine:true}}]),{text:'NOTE GLOBALE',options:{fontSize:13,color:P.g,breakLine:true}},{text:sc.stars?stars(sc.stars):'—',options:{fontSize:22,color:P.star}}],{x:6.8,y:1.85,w:5.9,h:4.8,valign:'top',paraSpaceAfter:2})}
- /* 3. Les scores */
+  const blocks=[['DEMANDE SPÉCIFIQUE',C.r4||'Aucune'],['PROBLÈME RENCONTRÉ',pb],['RETOUR EXPÉRIENCE GLOBAL',C.r3||'—']];const RW=6.2,RH=4.4;
+  const need=fs=>blocks.reduce((h,[k,v])=>h+pptH(1,fs)+pptH(pptLines(v,RW,fs),fs)+0.08,0)+0.9;let fs=13;while(fs>9&&need(fs)>RH)fs--;
+  T(s,[...blocks.flatMap(([k,v])=>[{text:k,options:{fontSize:fs,bold:true,color:P.g,breakLine:true}},{text:String(v),options:{fontSize:fs,italic:true,breakLine:true}},{text:' ',options:{fontSize:5,breakLine:true}}]),{text:'NOTE GLOBALE',options:{fontSize:fs,bold:true,color:P.g,breakLine:true}},{text:sc.stars?stars(sc.stars):'—',options:{fontSize:24,color:P.star}}],{x:6.65,y:1.9,w:RW,h:RH+0.6,valign:'top',fit:'shrink'})}
+ /* 3. Les scores : score global et score par types sur la même slide */
  await divider('01','LES SCORES','bed');
- {const s=base('Score global '+r.hotel);const rows=[[{text:'',options:{}},...H.map(x=>hcell(mlab(x))),hcell('Objectif'),hcell('YTD')],
-   ...SECTIONS.map((sec,i)=>[lcell(SECLAB[sec].replace(/^Accueil/,"L'accueil")),...H.map(x=>cell(x.sc.secPct[sec])),i===0?{text:OBJ+'%',options:{align:'center',fontSize:12,rowspan:SECTIONS.length,fill:{color:P.bg}}}:null,cell(ytdAvg(x=>x.sc.secPct[sec]))].filter(Boolean)),
+ {const s=base('Score global '+r.hotel,'et par types de questions');const rh=0.38;
+  const rows=[[{text:'',options:{}},...H.map(x=>hcell(mlab(x))),hcell('Objectif'),hcell('YTD')],
+   ...SECTIONS.map((sec,i)=>[lcell(SECLAB[sec].replace(/^Accueil/,"L'accueil")),...H.map(x=>cell(x.sc.secPct[sec])),i===0?{text:OBJ+'%',options:{align:'center',fontSize:B+1,rowspan:SECTIONS.length,fill:{color:P.bg}}}:null,cell(ytdAvg(x=>x.sc.secPct[sec]))].filter(Boolean)),
    [lcell('SCORE'),...H.map(x=>cell(x.score)),{text:'',options:{fill:{color:P.bg}}},cell(ytdAvg(x=>x.score))]];
-  scoreTable(s,rows,1.7)}
- {const s=base('Score par types de questions '+r.hotel);const TT=H.map(typeRates);
+  scoreTable(s,rows,2.3,TOP,rh);const TT=H.map(typeRates);const y2=TOP+rows.length*rh+0.45;
   const line=(lab,k)=>[lcell(lab),...TT.map(t=>cell(t[k])),cell((v=>v.length?Math.round(avg(v)):null)(TT.map(t=>t[k]).filter(v=>v!=null)))];
-  scoreTable(s,[[{text:'',options:{}},...H.map(x=>hcell(mlab(x))),hcell('YTD')],line('Normales','N'),line('Essentielles','E'),line('Bonus','X')],1.5,2.1)}
- SECTIONS.forEach(sec=>{const qs=list.filter(q=>q.sec===sec&&PTS[q.t]);const nm=SECLAB[sec].replace(/^(Le |La |L')/,'');if(qs.length)qSlides('Questions '+nm.toLowerCase()+' '+r.hotel,qs,'ESSENTIELS '+nm.toUpperCase())});
+  scoreTable(s,[[{text:'TYPES DE QUESTIONS',options:{bold:true,fontSize:B,align:'center',color:P.g}},...H.map(x=>hcell(mlab(x))),hcell('YTD')],line('Normales','N'),line('Essentielles','E'),line('Bonus','X')],2.3,y2,rh)}
+ /* questions par section, sur deux colonnes ; le buffet est résumé en une ligne (produits présents / absents) */
+ SECTIONS.forEach(sec=>{const qs=list.filter(q=>q.sec===sec&&PTS[q.t]);if(!qs.length)return;const nm=SECLAB[sec].replace(/^(Le |La |L')/,'');
+  const bf=qs.filter(q=>q.t==='B');const rows=qs.filter(q=>q.t!=='B').map((q,i)=>qRow(q,i));
+  if(bf.length){const ab=bf.filter(q=>A[q.id]==='non').map(q=>clean(q.q).replace(/^(Le |La |Les |L')/,'').replace(/ (était|étaient)-(il|ils|elle|elles) [a-zéè]+ \?$/,'').replace(/ \?$/,''));
+   rows.push(span(`BUFFET : ${bf.length-ab.length} / ${bf.length} produits présents`+(ab.length?` · absents : ${ab.join(', ')}`:' · aucun produit manquant'),ab.length?'F6D9D3':P.ok))}
+  qSlides('Questions '+nm.toLowerCase(),r.hotel,rows,'ESSENTIELS '+nm.toUpperCase())});
  /* 4. Perception de la marque */
  await divider('02','PERCEPTION DE LA\nMARQUE','mat');
- {const ms=list.filter(q=>q.t==='M');if(ms.length){const s=base('Score global '+r.hotel,'Perception de la marque',true);
-  const pv=(x,q)=>{const v=x.answers[q.id];return v==='oui'?100:v==='non'?0:null};
-  const rows=[[{text:'',options:{}},...H.map(x=>hcell(mlab(x),9)),hcell('YTD',9)],...ms.map(q=>[{text:short(qText(q,r.hotel),90),options:{fontSize:8,bold:true,align:'center',color:'000000'}},...H.map(x=>cell(pv(x,q),8)),cell((v=>v.length?Math.round(avg(v)):null)(H.map(x=>pv(x,q)).filter(v=>v!=null)),8)])];
-  const n=H.length+1;s.addTable(rows,{x:0.43,y:1.75,w:2.9+n*0.5,colW:[2.9,...Array(n).fill(0.5)],rowH:0.48,fontFace:FF,border:{type:'solid',pt:0.5,color:P.bd},valign:'middle'});
-  const wow=list.filter(q=>q.t==='H'&&q.free).map(q=>C[q.id]).filter(Boolean).join(' ');
-  T(s,'MOMENT OU\nATTENTION QUI A\nMARQUÉ LE CLIENT',{x:9.5,y:1.85,w:3.3,h:1,fontSize:11,bold:true,color:'000000',align:'center'});
-  s.addShape(pres.shapes.RECTANGLE,{x:9.4,y:3.05,w:3.5,h:1.1,fill:{color:P.ok},line:{type:'none'}});T(s,short(wow||'—',160),{x:9.5,y:3.1,w:3.3,h:1,fontSize:10,italic:true,align:'center',valign:'middle'})}}
- const feelSlide=(sec,rows,score,extra)=>{const s=base('Perception de la marque',SECLAB[sec]);
-  s.addTable(rows,{x:0.43,y:2.1,w:6.2,colW:[3.6,0.9,0.85,0.85],rowH:0.4,fontFace:FF,color:P.ink,border:{type:'none'},valign:'middle',margin:[0,0.08,0,0.08]});
-  s.addShape(pres.shapes.LINE,{x:7.1,y:2.0,w:0,h:4.7,line:{color:'000000',width:0.75}});
-  T(s,'RETOUR GLOBAL EXPÉRIENCE',{x:7.5,y:2.1,w:5.3,h:0.3,fontSize:10});T(s,score!=null?stars(Math.round(score/20)):'—',{x:7.5,y:2.5,w:5.3,h:0.5,fontSize:24,color:P.g});
-  if(extra){s.addShape(pres.shapes.RECTANGLE,{x:7.5,y:3.6,w:5.2,h:0.55,fill:{color:P.ok},line:{type:'none'}});T(s,short(extra,120),{x:7.6,y:3.62,w:5,h:0.5,fontSize:10,italic:true,align:'center',valign:'middle'})}
-  foot(s);return s};
- SECTIONS.forEach(sec=>{const head=[{text:'QUESTIONS RESSENTI',options:{bold:true,fontSize:8}},{text:MOIS.toUpperCase(),options:{bold:true,fontSize:8,align:'center'}},{text:'YTD+*',options:{bold:true,fontSize:8,align:'center'}},{text:'YTD-*',options:{bold:true,fontSize:8,align:'center'}}];const z=i=>i%2===0?{fill:{color:P.zebra}}:{};
-  if(sec==='Conformité'){const qs=list.filter(q=>q.sec===sec&&PTS[q.t]);const nc=qs.filter(q=>A[q.id]==='non');const show=(nc.length?nc:qs.filter(q=>q.t==='C')).slice(0,11);
-   const rows=[[{text:nc.length?'POINTS NON CONFORMES':'POINTS CRITIQUES',options:{bold:true,fontSize:8}},head[1],head[2],head[3]],...show.map((q,i)=>{const [p,n]=ytd(q);const m=mark(A[q.id]);return [{text:short(qText(q,r.hotel),58),options:{fontSize:8,...z(i)}},{...m,options:{...m.options,...z(i)}},{text:p,options:{fontSize:9,align:'center',...z(i)}},{text:n,options:{fontSize:9,align:'center',...z(i)}}]})];
-   const cm=nc.map(q=>C[q.id]).filter(Boolean).join(' · ');feelSlide(sec,rows,sc.secPct[sec],cm||(sc.crit.length?sc.crit.length+' point(s) critique(s) non conforme(s)':'Aucun point critique non conforme'));return}
-  const rq=list.filter(q=>q.sec===sec&&q.t==='R');if(!rq.length)return;
-  const rows=[head,...rq.map((q,i)=>{const v=A[q.id];const y=H.map(x=>x.answers[q.id]).filter(a=>a&&a.n);const ok=v&&v.n>=4;return [{text:short(qText(q,r.hotel),58),options:{fontSize:8,...z(i)}},{...(v&&v.n?mark(ok?'oui':'non'):mark(null)),options:{...mark(v&&v.n?(ok?'oui':'non'):null).options,...z(i)}},{text:y.length?y.filter(a=>a.n>=4).length+'/'+y.length:'',options:{fontSize:9,align:'center',...z(i)}},{text:y.length?y.filter(a=>a.n<4).length+'/'+y.length:'',options:{fontSize:9,align:'center',...z(i)}}]})];
-  feelSlide(sec,rows,sc.secFeel[sec],null)});
- /* 5. Conciergerie */
+ {const ms=list.filter(q=>q.t==='M');if(ms.length){const pv=(x,q)=>{const v=x.answers[q.id];return v==='oui'?100:v==='non'?0:null};const n=H.length+1;const cw=Math.min(0.95,4.4/n);const lw=8.7-n*cw;
+  const head=[{text:'PERCEPTION DE LA MARQUE',options:{bold:true,fontSize:B}},...H.map(x=>hcell(mlab(x),B)),hcell('YTD',B)];
+  const rows=ms.map(q=>({cells:[{text:clean(qText(q,r.hotel)),options:{fontSize:B}},...H.map(x=>cell(pv(x,q),B)),cell((v=>v.length?Math.round(avg(v)):null)(H.map(x=>pv(x,q)).filter(v=>v!=null)),B)]}));
+  const wow=list.filter(q=>q.t==='H'&&q.free).map(q=>C[q.id]).filter(Boolean).join(' ')||'—';
+  flow((si,n2)=>base('Score global '+r.hotel+(n2>1?` (${si+1}/${n2})`:''),'Perception de la marque'),head,rows,[lw,...Array(n).fill(cw)],{border:{type:'solid',pt:0.5,color:P.bd},after:s=>{
+   T(s,'MOMENT OU ATTENTION QUI A MARQUÉ LE CLIENT',{x:9.5,y:TOP,w:3.4,h:0.7,fontSize:B+1,bold:true,color:'000000',align:'center',valign:'middle'});box(s,wow,9.5,TOP+0.8,3.4,4.2,B+1)}})}}
+ /* ressenti par section, regroupé (étoiles dans l'intertitre de chaque section) */
+ {const rows=[];SECTIONS.forEach(sec=>{
+  if(sec==='Conformité'){const qs=list.filter(q=>q.sec===sec&&PTS[q.t]);const nc=qs.filter(q=>A[q.id]==='non');const v=sc.secPct[sec];
+   rows.push(span(`LA CONFORMITÉ  ${v!=null?stars(Math.round(v/20))+'  '+v+' %':''}  ·  ${sc.crit.length?sc.crit.length+' point(s) critique(s) non conforme(s)':'aucun point critique non conforme'}`));
+   (nc.length?nc:[]).forEach((q,i)=>rows.push(qRow(q,i,C[q.id]?' — « '+C[q.id]+' »':'')));if(!nc.length)rows.push({span:true,cells:[{text:'Aucun point non conforme relevé',options:{italic:true,fontSize:B,colspan:4}}]});return}
+  const rq=list.filter(q=>q.sec===sec&&q.t==='R');if(!rq.length)return;const f=sc.secFeel[sec];
+  rows.push(span(`${SECLAB[sec].toUpperCase().replace(/^ACCUEIL/,"L'ACCUEIL")}  ${f!=null?stars(Math.round(f/20))+'  '+(f/20).toFixed(1).replace('.',',')+' / 5':''}`));
+  rq.forEach((q,i)=>{const v=A[q.id];const y=H.map(x=>x.answers[q.id]).filter(a=>a&&a.n);const m=mark(v&&v.n?(v.n>=4?'oui':'non'):null);
+   rows.push({cells:[{text:clean(qText(q,r.hotel))+(v&&v.n?` (${v.n}/5)`:''),options:{fontSize:B,...ZB(i)}},{...m,options:{...m.options,...ZB(i)}},{text:y.length?y.filter(a=>a.n>=4).length+'/'+y.length:'',options:{fontSize:B,align:'center',...ZB(i)}},{text:y.length?y.filter(a=>a.n<4).length+'/'+y.length:'',options:{fontSize:B,align:'center',...ZB(i)}}]})})});
+  if(rows.length)qSlides('Perception de la marque','ressenti du client par section',rows,'QUESTIONS RESSENTI')}
+ /* 5. Conciergerie : une slide, score de chaque étape dans l'intertitre */
  const cq=list.filter(q=>q.t==='H'&&!q.free);
  if(cq.length){await divider('03','LA CONCIERGERIE','desk');const subs=[...new Set(cq.map(q=>q.sub))];const nm=sb=>sb.replace(/^Conciergerie /,'').replace(/[()]/g,'');
-  {const s=base('Score global '+r.hotel,'La conciergerie',true);const pc=(x,sb)=>{const v=cq.filter(q=>!sb||q.sub===sb).map(q=>x.answers[q.id]).filter(a=>a==='oui'||a==='non');return v.length?Math.round(v.filter(a=>a==='oui').length/v.length*100):null};
-   const rows=[[{text:'',options:{}},...H.map(x=>hcell(mlab(x))),hcell('YTD')],...subs.map(sb=>[lcell(nm(sb).charAt(0).toUpperCase()+nm(sb).slice(1)),...H.map(x=>cell(pc(x,sb))),cell(ytdAvg(x=>pc(x,sb)))]),[lcell('SCORE'),...H.map(x=>cell(pc(x))),cell(ytdAvg(x=>pc(x)))]];
-   scoreTable(s,rows,1.7)}
-  {const s=base('Conciergerie','Avant séjour · pré-arrivée · après séjour');const w=(12.47-0.3*(subs.length-1))/subs.length;
-   subs.forEach((sb,i)=>{const qs=cq.filter(q=>q.sub===sb).slice(0,12);const z=j=>j%2===0?{fill:{color:P.zebra}}:{};
-    const rows=[[{text:nm(sb).toUpperCase(),options:{bold:true,fontSize:8}},{text:MS[+r.from.slice(5,7)-1].toUpperCase(),options:{bold:true,fontSize:7,align:'center'}},{text:'YTD+*',options:{bold:true,fontSize:7,align:'center'}},{text:'YTD-*',options:{bold:true,fontSize:7,align:'center'}}],...qs.map((q,j)=>{const [p,n]=ytd(q);const m=mark(A[q.id]);return [{text:short(qText(q,r.hotel),Math.round((w-1.5)*17)),options:{fontSize:7.5,...z(j)}},{...m,options:{...m.options,fontSize:11,...z(j)}},{text:p,options:{fontSize:8,align:'center',...z(j)}},{text:n,options:{fontSize:8,align:'center',...z(j)}}]})];
-    s.addTable(rows,{x:0.43+i*(w+0.3),y:2.0,w,colW:[w-1.5,0.5,0.5,0.5],rowH:0.42,fontFace:FF,color:P.ink,border:{type:'none'},valign:'middle',margin:[0,0.06,0,0.06]})});foot(s)}}
- /* 6. Upselling et parcours digital */
- {const u=list.filter(q=>q.t==='U'),d=list.filter(q=>q.t==='D');if(u.length||d.length){const s=base('Upselling et parcours digital',`Upselling ${sc.upsell!=null?sc.upsell+' %':'—'} · digital ${sc.digital!=null?sc.digital+' %':'—'}`,true);if(u.length)qTable(s,0.43,u.slice(0,13),'UPSELLING');if(d.length)qTable(s,6.8,d.slice(0,13),'PARCOURS DIGITAL');foot(s)}}
+  const pc=(x,sb)=>{const v=cq.filter(q=>!sb||q.sub===sb).map(q=>x.answers[q.id]).filter(a=>a==='oui'||a==='non');return v.length?Math.round(v.filter(a=>a==='oui').length/v.length*100):null};
+  const rows=[];subs.forEach(sb=>{const v=pc(r,sb),y=ytdAvg(x=>pc(x,sb));rows.push(span(`${nm(sb).toUpperCase()}  ·  ${MOIS.toLowerCase()} ${v!=null?v+' %':'—'}  ·  YTD ${y!=null?y+' %':'—'}`,v==null||v>=OBJ?P.ok:'F6D9D3'));cq.filter(q=>q.sub===sb).forEach((q,i)=>rows.push(qRow(q,i)))});
+  const g=pc(r);qSlides('Conciergerie',`score global ${g!=null?g+' %':'—'} · avant séjour, pré-arrivée, après séjour`,rows,'QUESTIONS CONCIERGERIE')}
+ /* 6. Upselling et parcours digital sur la même slide */
+ {const u=list.filter(q=>q.t==='U'),d=list.filter(q=>q.t==='D');const rows=[];
+  if(u.length){rows.push(span(`UPSELLING  ·  ${sc.upsell!=null?sc.upsell+' %':'—'}`));u.forEach((q,i)=>rows.push(qRow(q,i)))}
+  if(d.length){rows.push(span(`PARCOURS DIGITAL  ·  ${sc.digital!=null?sc.digital+' %':'—'}`));d.forEach((q,i)=>rows.push(qRow(q,i)))}
+  if(rows.length)qSlides('Upselling et parcours digital','',rows,'QUESTIONS')}
  /* 7. Avis client */
  {const g=k=>{const q=list.find(x=>x.t==='A'&&x.k===k);return q?A[q.id]:null};const sv=k=>{const q=list.find(x=>x.t==='S'&&x.k===k);return q?A[q.id]:null};const sub=(g('sub')||{}).crit||{};
-  const s=base('Avis client',"comme s'il était publié sur Booking");
-  T(s,[{text:sc.stars?stars(sc.stars):'—',options:{fontSize:26,color:P.star,breakLine:true}},{text:(g('title')||{}).txt?'« '+g('title').txt+' »':'',options:{fontSize:16,bold:true,color:P.g,breakLine:true}},{text:' ',options:{breakLine:true,fontSize:8}},{text:'CE QUE LE CLIENT A AIMÉ',options:{fontSize:12,color:P.g,breakLine:true}},{text:((g('pos')||{}).txt||'—').slice(0,300),options:{fontSize:12,italic:true,breakLine:true}},{text:' ',options:{breakLine:true,fontSize:8}},{text:'CE QUE LE CLIENT A MOINS AIMÉ',options:{fontSize:12,color:P.g,breakLine:true}},{text:((g('neg')||{}).txt||'—').slice(0,300),options:{fontSize:12,italic:true}}],{x:0.43,y:2.0,w:6.6,h:4.9,valign:'top'});
-  const z=i=>i%2===0?{fill:{color:P.zebra}}:{};const items=[...Object.entries(sub).map(([k,n])=>[k,n+' / 5']),['Recommandation (0 à 10)',sc.nps!=null?sc.nps+' / 10':'—'],['Prix jugé juste',sc.price?sc.price+' / 5':'—'],['Raison du choix',sc.reason||'—']];
-  s.addTable(items.map(([k,v],i)=>[{text:k,options:{fontSize:10,...z(i)}},{text:v,options:{fontSize:10,align:'center',bold:true,color:P.g,...z(i)}}]),{x:7.6,y:2.0,w:5.2,colW:[3.3,1.9],rowH:0.4,fontFace:FF,color:P.ink,border:{type:'none'},valign:'middle'});
-  const t=sv('text');if(t&&t.txt){s.addShape(pres.shapes.RECTANGLE,{x:7.6,y:6.1,w:5.2,h:0.8,fill:{color:P.ok},line:{type:'none'}});T(s,[{text:'Ce qui aurait rendu le séjour parfait : ',options:{bold:true,color:P.g}},{text:t.txt,options:{italic:true}}],{x:7.7,y:6.12,w:5,h:0.76,fontSize:10,valign:'middle'})}}
- /* 8. Photos du séjour (grille comme le modèle) */
- const phs=[...Object.entries(r.photos||{}).map(([k,p])=>{const q=list.find(x=>String(x.id)===String(k));return {u:p&&(p.url||p.data),t:q?qText(q,r.hotel):'Photo'}}),...(r.defects||[]).map(p=>({u:p.url||p.data,t:p.caption||'Défaut signalé'}))].filter(p=>p.u);
- let lost=0;const imgs=[];for(const p of phs){const d=await toData(p.u);if(d&&/^data:image\/(jpeg|jpg|png|gif|webp);base64,/.test(d)&&(await imgSize(d))[0]>16)imgs.push({...p,d});else lost++}
- for(let i=0;i<imgs.length;i+=6){const s=pres.addSlide();s.background={color:P.bg};for(const [j,p] of imgs.slice(i,i+6).entries()){const x=0.6+(j%3)*4.15,y=0.5+Math.floor(j/3)*3.5,bw=3.75,bh=2.7;const [w,h]=await imgSize(p.d);
-   s.addImage({data:p.d,x,y,w:bw,h:bw*h/w,sizing:{type:'cover',w:bw,h:bh}});T(s,short(p.t,60),{x,y:y+2.75,w:bw,h:0.35,fontSize:9,italic:true,color:P.g,align:'center'})}}
+  const s=base('Avis client',"comme s'il était publié sur Booking");const tit=(g('title')||{}).txt,pos=(g('pos')||{}).txt||'—',neg=(g('neg')||{}).txt||'—';
+  const LW=6.7;let fs=13;const need=f=>pptH(1,26)+(tit?pptH(pptLines('« '+tit+' »',LW,f+2),f+2):0)+2*pptH(1,f)+pptH(pptLines(pos,LW,f),f)+pptH(pptLines(neg,LW,f),f)+0.4;while(fs>9&&need(fs)>5)fs--;
+  T(s,[{text:sc.stars?stars(sc.stars):'—',options:{fontSize:26,color:P.star,breakLine:true}},...(tit?[{text:'« '+tit+' »',options:{fontSize:fs+2,bold:true,color:P.g,breakLine:true}}]:[]),{text:' ',options:{breakLine:true,fontSize:5}},{text:'CE QUE LE CLIENT A AIMÉ',options:{fontSize:fs,bold:true,color:P.g,breakLine:true}},{text:pos,options:{fontSize:fs,italic:true,breakLine:true}},{text:' ',options:{breakLine:true,fontSize:5}},{text:'CE QUE LE CLIENT A MOINS AIMÉ',options:{fontSize:fs,bold:true,color:P.g,breakLine:true}},{text:neg,options:{fontSize:fs,italic:true}}],{x:X0,y:TOP,w:LW,h:5.2,valign:'top',fit:'shrink'});
+  const items=[...Object.entries(sub).map(([k,n])=>[k,n+' / 5']),['Recommandation (0 à 10)',sc.nps!=null?sc.nps+' / 10':'—'],['Prix jugé juste',sc.price?sc.price+' / 5':'—'],['Raison du choix',sc.reason||'—']];
+  const rh=items.map(([k,v])=>Math.max(pptH(pptLines(k,3.1,B+1),B+1),pptH(pptLines(v,1.95,B+1),B+1)));
+  s.addTable(items.map(([k,v],i)=>[{text:k,options:{fontSize:B+1,...ZB(i)}},{text:v,options:{fontSize:B+1,align:'center',bold:true,color:P.g,...ZB(i)}}]),{x:7.55,y:TOP,w:5.35,colW:[3.25,2.1],rowH:rh,fontFace:FF,color:P.ink,border:{type:'none'},valign:'middle',margin:[0.03,0.1,0.03,0.1]});
+  const t=sv('text');const ty=TOP+rh.reduce((a,b)=>a+b,0)+0.25;if(t&&t.txt)box(s,'Ce qui aurait rendu le séjour parfait : '+t.txt,7.55,ty,5.35,7.1-ty,B+1)}
+ /* 8. Photos : autant par slide qu'il le faut pour rester sous 25 slides */
+ const phs=[...Object.entries(r.photos||{}).map(([k,p])=>{const q=list.find(x=>String(x.id)===String(k));return {u:p&&(p.url||p.data),t:q?clean(qText(q,r.hotel)):'Photo'}}),...(r.defects||[]).map(p=>({u:p.url||p.data,t:p.caption||'Défaut signalé'}))].filter(p=>p.u);
+ let lost=0;const imgs=[];if(dry)phs.forEach(p=>imgs.push(p));else for(const p of phs){const d=await toData(p.u);if(d&&/^data:image\/(jpeg|jpg|png|gif);base64,/.test(d)&&(await imgSize(d))[0]>16)imgs.push({...p,d});else lost++}
+ if(imgs.length){const room=Math.max(1,PPT_MAX-nSlides-1);const per=imgs.length<=room*4?4:imgs.length<=room*6?6:9;const nc=per===4?2:3,nr=per===9?3:2;const cw=(W-(nc-1)*0.3)/nc,chh=(BOTTOM-TOP-(nr-1)*0.15)/nr,ih=chh-0.5;
+  for(let i=0;i<imgs.length;i+=per){const s=base('Photos du séjour','défauts et points relevés par le client');for(const [j,p] of imgs.slice(i,i+per).entries()){const x=X0+(j%nc)*(cw+0.3),y=TOP+Math.floor(j/nc)*(chh+0.15);
+    if(!dry){const [w,h]=await imgSize(p.d);s.addImage({data:p.d,x,y,w:cw,h:cw*h/w,sizing:{type:'cover',w:cw,h:ih}})}T(s,p.t,{x,y:y+ih+0.04,w:cw,h:0.44,fontSize:Math.max(9,B),italic:true,color:P.g,align:'center',valign:'top',fit:'shrink'})}}}
  /* 9. Merci */
- {const s=pres.addSlide();s.background={color:P.g};await photo(s,'train',0,0,13.333,7.5);T(s,'merci !',{x:0.7,y:0.9,w:6,h:1.4,fontSize:66,italic:true,color:'FFFFFF',fontFace:'Georgia'})}
- await pres.writeFile({fileName:fileBase(r)+'.pptx'});toast(lost?`Présentation téléchargée (${lost} photo(s) non incluse(s), voir l'Excel)`:'Présentation téléchargée')}
+ {const s=pres.addSlide();nSlides++;s.background={color:P.g};await photo(s,'train',0,0,13.333,7.5);T(s,'merci !',{x:0.7,y:0.9,w:6,h:1.4,fontSize:66,italic:true,color:'FFFFFF',fontFace:'Georgia'})}
+ if(dry)return nSlides;
+ await pres.writeFile({fileName:fileBase(r)+'.pptx'});toast((lost?`Présentation téléchargée (${lost} photo(s) non incluse(s), voir l'Excel)`:'Présentation téléchargée')+` · ${nSlides} slides`);return nSlides}
 
 /* ===== Plans d'action ===== */
 const prog=p=>p.actions.length?Math.round(p.actions.filter(a=>a.done).length/p.actions.length*100):0;
