@@ -608,7 +608,7 @@ function demoResponse(d){const ans={},com={...d.r};let bf=0;
  return {auditId:d.id,format:d.format,hotel:d.hotel,channel:d.channel,from:d.from,to:d.to,official:false,client:d.client,email:'',answers:ans,comments:com,photos:{},defects:[],submittedAt:d.to+'T10:00:00Z',qv:3,season:seasonOf(d.from)}}
 function loadDemo(){DEMO.forEach(d=>{if(CANCELLED.has(d.id)||REPORTS.some(r=>r.id==='r'+d.id))return;const d2=JSON.parse(JSON.stringify(d));ingestResponse(demoResponse(d2));const r=REPORTS.find(x=>x.id==='r'+d.id);if(r){r.demo=true;r.status='diffuse';r.date=d.to}const a=AUDITS.find(x=>x.id===d.id);if(a){a.demo=true;a.who='client'}})}
 /* ===== Envoi automatique : Google Sheet (Apps Script) pour la version GitHub ===== */
-const API_URL='https://script.google.com/macros/s/AKfycbxMK7fYWe0Kocw_cXkoVFNLKCKaDHELDpJiId_oeuj7NkTA5_RV7yrtozT7SHTjd7YxTw/exec'; // ← collez ici l'adresse de l'application Web Apps Script (voir le pas à pas)
+const API_URL='https://script.google.com/macros/s/AKfycbxIv2ABzvdwHXx82of2UBjYjA3kw-zEsloBGC9GFzkkVI7HYpAbgLr0S_-hv86Oa7vFig/exec'; // ← collez ici l'adresse de l'application Web Apps Script (voir le pas à pas)
 const API={on:!!API_URL,
  async get(params){const r=await fetch(API_URL+'?'+new URLSearchParams(params));return r.json()},
  async post(body){const r=await fetch(API_URL,{method:'POST',body:JSON.stringify(body)});const j=await r.json();if(!j.ok)throw new Error(String(j.error||'Envoi refusé').replace(/^Error:\s*/,''));return j}};
