@@ -14,7 +14,7 @@
   - Photos des PowerPoint (couverture de chaque hôtel, intercalaires « Les scores », « Perception de la marque », « La conciergerie », « merci », logo) : un seul fichier `rapport-photos.json`, à la racine du dépôt. Pour changer une photo, demander à Claude de régénérer ce fichier.
 - **La base de données** : un Google Sheet.
   - Onglet `data` : audits, réponses, plans, statuts des rapports, questions modifiées, réglages (saisons). Ne pas modifier à la main.
-  - Onglet `cardex` : répertoire des clients mystère, modifiable à la main.
+  - Onglet `cardex_app` : répertoire des clients mystère, rempli depuis l'app.
   - Onglet `comptes` : comptes de la plateforme.
 - **Le script** : Extensions › Apps Script du Google Sheet (code dans `apps-script.gs`), publié en « Application Web ».
   - Il fait le lien entre le site et le Sheet.
@@ -42,7 +42,7 @@ Garder le même déploiement permet de garder la même adresse.
 - **Mot de passe oublié** : vider la cellule « Hash » de la personne dans l'onglet `comptes`. Elle recrée son compte avec la même adresse.
 - **Retirer un accès** : supprimer sa ligne dans l'onglet `comptes`.
 - **Limite** : c'est une protection simple. Le mot de passe est chiffré et vérifié par le script, mais toute personne qui connaît l'adresse du script peut lire les données d'audit. Ne jamais mettre de données sensibles dans les commentaires.
-- **Cardex** : protégé par le code `CARDEX_KEY` du script, demandé une fois par appareil. Les contacts sont dans l'onglet `cardex` du Sheet (pour tout remplacer depuis le fichier `cardex.csv` : ouvrir l'onglet `cardex`, Fichier › Importer › Importer › `cardex.csv` › « Remplacer la feuille actuelle »).
+- **Cardex** : Planification › Cardex, accessible à tout compte connecté (aucun code à saisir). Les contacts s'ajoutent dans l'app au fur et à mesure (prénom, nom, contact chez Alfred, téléphone, e-mail, profils Famille / Solo / Duo, hôtels, commentaire, résumé de passage) et sont enregistrés dans l'onglet `cardex_app` du Sheet, créé automatiquement.
 
 ## 6. Modifier les questions
 - **Accès** : Librairie › un format › **Modifier les questions**.
@@ -91,6 +91,5 @@ Garder le même déploiement permet de garder la même adresse.
   - du Google Sheet et du script ;
   - du dossier Drive « Alfred Audit Photos » ;
   - du dépôt GitHub `alfredhotelspro`.
-- Le code `CARDEX_KEY`.
 - Un compte Administrateur pour la personne qui reprend.
 - Le tableau source des questions (CM-V3) et ce document.
