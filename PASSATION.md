@@ -11,7 +11,7 @@
 - **Le site** : un seul fichier `index.html`, publié par GitHub Pages.
   - Dépôt : `alfredhotelspro/audit-client-mystere`, branche `main`.
   - Adresse : https://alfredhotelspro.github.io/audit-client-mystere/
-  - Photos de couverture PowerPoint : fichiers `cover-xxx.jpg`, `mat.jpg`, `bed.jpg`, `desk.jpg`, `train.jpg`, `logo.png`, à la racine du dépôt ou dans le dossier `rapport/`.
+  - Photos des PowerPoint (couverture de chaque hôtel, intercalaires « Les scores », « Perception de la marque », « La conciergerie », « merci », logo) : un seul fichier `rapport-photos.json`, à la racine du dépôt. Pour changer une photo, demander à Claude de régénérer ce fichier.
 - **La base de données** : un Google Sheet.
   - Onglet `data` : audits, réponses, plans, statuts des rapports, questions modifiées, réglages (saisons). Ne pas modifier à la main.
   - Onglet `cardex` : répertoire des clients mystère, modifiable à la main.
@@ -42,11 +42,11 @@ Garder le même déploiement permet de garder la même adresse.
 - **Mot de passe oublié** : vider la cellule « Hash » de la personne dans l'onglet `comptes`. Elle recrée son compte avec la même adresse.
 - **Retirer un accès** : supprimer sa ligne dans l'onglet `comptes`.
 - **Limite** : c'est une protection simple. Le mot de passe est chiffré et vérifié par le script, mais toute personne qui connaît l'adresse du script peut lire les données d'audit. Ne jamais mettre de données sensibles dans les commentaires.
-- **Cardex** : protégé par le code `CARDEX_KEY` du script, demandé une fois par appareil.
+- **Cardex** : protégé par le code `CARDEX_KEY` du script, demandé une fois par appareil. Les contacts sont dans l'onglet `cardex` du Sheet (pour tout remplacer depuis le fichier `cardex.csv` : ouvrir l'onglet `cardex`, Fichier › Importer › Importer › `cardex.csv` › « Remplacer la feuille actuelle »).
 
 ## 6. Modifier les questions
 - **Accès** : Librairie › un format › **Modifier les questions**.
-- **Ce qu'on peut changer** : texte, type, moment du parcours, section, rubrique, formats, mode de réservation, équipement saisonnier, photo, statut (validée, à valider, à retirer). Tout se fait sans code.
+- **Ce qu'on peut changer** : texte, intitulé court (utilisé dans le PowerPoint), type, moment du parcours, section, rubrique, formats, mode de réservation, équipement saisonnier, photo, statut (validée, à valider, à retirer). Tout se fait sans code.
 - **Types** :
   - Normale : 1 pt.
   - Essentielle : 3 pts.
@@ -59,14 +59,18 @@ Garder le même déploiement permet de garder la même adresse.
 - **Questionnaire de base** : c'est le tableau CM-V3 (nov. 2026), présent dans le code.
 - **Anciens audits** : les réponses reçues avant la V3 gardent l'ancien questionnaire.
 
-## 7. Questionnaires saisonniers (été / hiver)
-- **Réglage** : Paramètres › **Hôtels et saisons**. Pour chaque hôtel : rooftop, restaurant, terrasse, avec « Aucun », « Toute l'année », « Été seulement » ou « Hiver seulement ».
-- **Saisons** : été = mai à septembre, hiver = octobre à avril.
-- **À la création d'un audit** : la saison est proposée selon les dates et peut être changée. Elle est enregistrée dans le lien du client.
-- **Effet** : les questions rattachées à un équipement fermé ne sont pas posées.
-  - Exemple : le rooftop Basta Pinsa de Monaco n'est testé qu'en été.
-- **Aperçu** : Librairie › choisir un hôtel, puis Été ou Hiver, pour voir le questionnaire correspondant.
-- **Rattacher une question à un équipement** : Modifier les questions › « Équipement saisonnier ».
+## 7. Espaces propres à chaque hôtel et saisons
+- **Réglage** : Paramètres › **Hôtels et saisons**. Chaque hôtel liste ses espaces (nom, type : rooftop, restaurant, bar ou terrasse) et leur ouverture : toute l'année, été (mai à septembre), hiver (octobre à avril) ou mois précis.
+- **Espaces actuels** :
+  - Monaco : Basta Pinsa (rooftop, été) ;
+  - Biarritz Les Halles : La Gambette (avril à octobre) ;
+  - Biarritz Port-Vieux : La Maison et Port Vieux (toute l'année) ;
+  - Montreuil : Corner (restaurant, toute l'année) et son rooftop bar (été) ;
+  - Toulouse Victor Hugo : La Gambette (mai à septembre).
+- **Effet sur le questionnaire** : pour chaque espace ouvert à la date de l'audit, « Je fais le tour de l'hôtel » ajoute « Qu'avez-vous pensé du rooftop / restaurant [nom] ? » (5 étoiles + photo obligatoire) et « En quelques mots, qu'avez-vous pensé de ce que vous avez consommé ? ». Ces réponses ne comptent pas dans la note et ont leur slide dans le PowerPoint (« Les espaces de l'hôtel »).
+- **Questions d'accueil liées** : « rooftop présenté » et « consommation proposée au rooftop » ne sont posées que si un rooftop est ouvert ; « restaurant recommandé » seulement si un restaurant est ouvert.
+- **À la création d'un audit** : la saison est proposée selon les dates et peut être changée.
+- **Aperçu** : Librairie › choisir un hôtel, puis Été ou Hiver.
 
 ## 8. Déroulé d'un audit
 1. Planification › « + » (ou Librairie › Lancer un audit) : format, hôtel, réservation, dates, saison, client mystère.
@@ -80,7 +84,7 @@ Garder le même déploiement permet de garder la même adresse.
 - **« La connexion n'a pas permis… »** : vérifier l'adresse du script dans `index.html` et que le script est déployé en accès « Tout le monde ».
 - **« Le script Google n'est pas à jour »** à la connexion : recoller `apps-script.gs` puis faire Nouvelle version (étape 4).
 - **Le lien client affiche « Merci ! » d'emblée** : ce lien a déjà été utilisé. Créer un nouvel audit.
-- **Photos absentes du PowerPoint** : vérifier que les images sont bien dans le dépôt.
+- **Photos absentes du PowerPoint** : vérifier que `rapport-photos.json` est bien à la racine du dépôt GitHub (l'app affiche un message s'il manque).
 
 ## 10. À transmettre avant le départ
 - Propriété (ou accès éditeur) :
