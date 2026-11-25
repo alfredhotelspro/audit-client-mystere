@@ -81,6 +81,7 @@ em.e{font-style:italic;color:var(--navy)}
 .qe-row{cursor:pointer;align-items:flex-start}
 .q>div{min-width:0}.q .tags .pill,.qe-row .pill{white-space:normal;max-width:100%}.q .txt{overflow-wrap:anywhere}
 .pgrid small{font-size:12px}
+.cxpast{border:1px solid var(--line,#e3e3d6);border-radius:16px;padding:12px;margin-top:10px}.cxpast-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
 .switch.wrap{display:flex;flex-wrap:wrap;height:auto;border-radius:18px}.switch.wrap button{flex:1 1 auto}
 nav.main a,nav.main button{white-space:nowrap}.qe-row:hover{background:var(--field)}.qe-del{opacity:.55}.qe-go{margin-left:auto;padding-left:8px}
 .fmt{display:flex;gap:16px;background:#fff;border:.67px solid var(--line);border-radius:25px;padding:16px;align-items:center;flex-wrap:wrap}
@@ -838,15 +839,19 @@ async function cxPersist(row,del){
 /* missions faites dans l'app : rapprochées par nom complet ou e-mail */
 function cxMissions(c){const n=cxFull(c).toLowerCase(),e=(c.email||'').trim().toLowerCase();return AUDITS.filter(a=>(n&&(a.client||'').trim().toLowerCase()===n)||(e&&(a.email||'').trim().toLowerCase()===e)).sort((a,b)=>(b.from||'').localeCompare(a.from||''))}
 const cxDone=a=>REPORTS.some(r=>r.audit===a.id);
+/* missions passées saisies à la main : stockées en texte lisible dans la colonne Passage (« Beaune · Famille · 2026-11; … », « non » = jamais) */
+const cxPast=c=>{const p=String(c.passage||'').trim();if(!p||p==='non')return [];return p.split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const [hotel,fmt,month]=x.split(/\s*·\s*/).map(y=>(y||'').trim());return {hotel,fmt,month}})};
+const cxPastStr=a=>a.length?a.map(m=>[m.hotel||'',m.fmt||'',m.month||''].join(' · ')).join('; '):'non';
+const cxMonthLabel=m=>/^\d{4}-\d{2}$/.test(m||'')?fm(m+'-01'):(m||'mois ?');
 function cxPassage(c){const ms=cxMissions(c);const done=ms.filter(cxDone);
  const l=ms.map(a=>`<div>${cxDone(a)?'✓':'🗓️'} ${esc(a.hotel)} · ${FORMATS[a.format]?CX_PROF[a.format]||FORMATS[a.format].l:''} · ${a.from?fm(a.from):'date à fixer'} <span class="${cxDone(a)?'ok':'pl'}">${cxDone(a)?'réalisée':'planifiée'}</span></div>`).join('');
- return ms.length||c.passage?`<div class="cxmiss"><b>${done.length?`A déjà fait ${done.length} mission${done.length>1?'s':''}`:c.passage?'Déjà venu(e)':'Mission planifiée'}</b>${l}${c.passage?`<div>📝 ${esc(c.passage)}</div>`:''}</div>`:'<div class="cxline small">Jamais venu(e) en client mystère</div>'}
+ return ms.length||cxPast(c).length?`<div class="cxmiss"><b>${done.length?`A déjà fait ${done.length} mission${done.length>1?'s':''}`:cxPast(c).length?'Déjà venu(e)':'Mission planifiée'}</b>${l}${cxPast(c).map(m=>`<div>✓ ${[m.hotel,m.fmt,m.month?cxMonthLabel(m.month):''].filter(Boolean).map(esc).join(' · ')||'Mission passée'}</div>`).join('')}</div>`:'<div class="cxline small">Jamais venu(e) en client mystère</div>'}
 function cardexView(){
  if(CX.state==='idle'){CX.state='loading';setTimeout(loadCardex,0)}
  if(CX.state==='loading')return `<div class="greybox" style="min-height:120px"><em class="e">Chargement du cardex…</em></div>`;
  if(CX.state==='err')return `<div class="notice warn">Le cardex n'a pas pu être chargé. ${esc(CX.msg||'')} <button class="btn sec sm" onclick="loadCardex()">Réessayer</button></div>`;
  const q=CX.q.toLowerCase();
- const rows=CARDEX.filter(c=>(CX.fmt!=='done'||cxMissions(c).some(cxDone)||c.passage)&&(!CX.fmt||CX.fmt==='done'||c[CX.fmt])&&(!CX.hotel||(c.hotels||[]).includes(CX.hotel))&&(!q||[cxFull(c),c.contact,c.notes,c.tel,c.email,c.passage].join(' ').toLowerCase().includes(q))).sort((a,b)=>cxFull(a).localeCompare(cxFull(b),'fr'));
+ const rows=CARDEX.filter(c=>(CX.fmt!=='done'||cxMissions(c).some(cxDone)||cxPast(c).length)&&(!CX.fmt||CX.fmt==='done'||c[CX.fmt])&&(!CX.hotel||(c.hotels||[]).includes(CX.hotel))&&(!q||[cxFull(c),c.contact,c.notes,c.tel,c.email,c.passage].join(' ').toLowerCase().includes(q))).sort((a,b)=>cxFull(a).localeCompare(cxFull(b),'fr'));
  const card=c=>{const prof=Object.keys(CX_PROF).filter(f=>c[f]);return `<div class="cxcard"><div class="cxtop"><div><b class="cxname">${esc(cxFull(c))}</b>${c.contact?`<div class="small">Contact Alfred : ${esc(c.contact)}</div>`:''}</div><button class="btn sec sm" onclick="cxEdit('${c.id}')">Modifier</button></div>
   <div class="cxpills">${prof.length?prof.map(f=>`<span class="pill">${CX_PROF[f]}</span>`).join(''):'<span class="small">Profil à préciser</span>'}</div>
   ${(c.hotels||[]).length?`<div class="cxline">🏨 ${esc(c.hotels.join(', '))}</div>`:''}
@@ -861,7 +866,7 @@ function cardexView(){
  <div class="band"><b>${rows.length} contact${rows.length>1?'s':''}</b>${CX.fmt||CX.hotel||CX.q?`<button class="btn sec sm" onclick="CX.fmt='';CX.hotel='';CX.q='';render()">Effacer les filtres</button>`:''}</div>
  ${rows.length?`<div class="cxgrid">${rows.map(card).join('')}</div>`:`<div class="greybox" style="min-height:140px"><em class="e">${CARDEX.length?'Aucun contact ne correspond.':'Aucun contact pour le moment. Cliquez « + Ajouter un contact ».'}</em></div>`}`}
 let CXE=null;
-function cxEdit(id){const c=CARDEX.find(x=>x.id===id);CXE=c?JSON.parse(JSON.stringify(c)):{id:'c'+Date.now().toString(36),prenom:'',nom:'',contact:'',tel:'',email:'',famille:false,business:false,couple:false,hotels:[],notes:'',passage:''};cxForm()}
+function cxEdit(id){const c=CARDEX.find(x=>x.id===id);CXE=c?{...JSON.parse(JSON.stringify(c)),past:cxPast(c),deja:cxPast(c).length?'oui':c.passage==='non'?'non':''}:{id:'c'+Date.now().toString(36),prenom:'',nom:'',contact:'',tel:'',email:'',famille:false,business:false,couple:false,hotels:[],notes:'',passage:'',deja:'',past:[]};cxForm()}
 function cxForm(){const c=CXE;const isNew=!CARDEX.some(x=>x.id===c.id);const ms=cxMissions(c);
  const inp=(k,l,ph,t)=>`<div class="field"><label class="lbl" for="cx-${k}">${l}</label><input type="${t||'text'}" id="cx-${k}" value="${esc(c[k]||'')}" placeholder="${ph}" oninput="CXE.${k}=this.value"></div>`;
  openModal(`<h2>${isNew?'Nouveau contact':'Modifier le contact'}</h2>
@@ -869,11 +874,22 @@ function cxForm(){const c=CXE;const isNew=!CARDEX.some(x=>x.id===c.id);const ms=
  <div class="lbl" style="margin-top:16px">Profils disponibles (plusieurs choix possibles)</div><div class="chips">${Object.entries(CX_PROF).map(([f,l])=>`<button class="chip ${c[f]?'on':''}" aria-pressed="${!!c[f]}" onclick="CXE.${f}=!CXE.${f};cxForm()">${l}</button>`).join('')}</div>
  <div class="lbl" style="margin-top:16px">Hôtels disponibles (plusieurs choix possibles)</div><div class="chips">${CX_HOTELS.map(h=>`<button class="chip ${(c.hotels||[]).includes(h)?'on':''}" aria-pressed="${(c.hotels||[]).includes(h)}" onclick="cxToggleH('${h}')">${h}</button>`).join('')}</div>
  <div class="field" style="margin-top:16px"><label class="lbl" for="cx-notes">Commentaire</label><textarea id="cx-notes" placeholder="Ex. dispo en semaine, plutôt en août" oninput="CXE.notes=this.value">${esc(c.notes||'')}</textarea></div>
- <div class="field" style="margin-top:12px"><label class="lbl" for="cx-passage">Résumé de son passage (missions déjà faites : où et quand)</label><textarea id="cx-passage" placeholder="Ex. Beaune, famille, novembre 2026" oninput="CXE.passage=this.value">${esc(c.passage||'')}</textarea>${ms.length?`<p class="small" style="margin-top:6px">Dans l'app : ${ms.map(a=>`${esc(a.hotel)} · ${a.from?fm(a.from):'date à fixer'} (${cxDone(a)?'réalisée':'planifiée'})`).join(' · ')}</p>`:''}</div>
+ <div class="lbl" style="margin-top:16px">Le client a-t-il déjà effectué une mission client mystère ?</div>
+ <div class="chips"><button class="chip ${c.deja==='oui'?'on':''}" onclick="cxDeja('oui')">Oui</button><button class="chip ${c.deja==='non'?'on':''}" onclick="cxDeja('non')">Non</button></div>
+ ${c.deja==='oui'?(c.past||[]).map((m,i)=>`<div class="cxpast"><div class="cxpast-h"><b>Mission ${i+1}</b>${c.past.length>1?`<button class="btn sec sm" aria-label="Retirer cette mission" onclick="CXE.past.splice(${i},1);cxForm()">✕</button>`:''}</div>
+  <div class="small">Quel hôtel ?</div><div class="chips">${CX_HOTELS.map(h=>`<button class="chip ${m.hotel===h?'on':''}" onclick="cxPastSet(${i},'hotel','${h}')">${h}</button>`).join('')}</div>
+  <div class="small" style="margin-top:8px">Quel format ?</div><div class="chips">${Object.values(CX_PROF).map(l=>{const v=l.replace(/^\S+\s/,'');return `<button class="chip ${m.fmt===v?'on':''}" onclick="cxPastSet(${i},'fmt','${v}')">${l}</button>`}).join('')}</div>
+  <div class="small" style="margin-top:8px">Quel mois ?</div>${(()=>{const y=m.month?m.month.slice(0,4):String(new Date().getFullYear());const Y=new Date().getFullYear();return `<div class="chips">${[Y,Y-1,Y-2].map(v=>`<button class="chip ${y===String(v)?'on':''}" onclick="cxPastYear(${i},'${v}')">${v}</button>`).join('')}</div><div class="chips" style="margin-top:6px">${MS.map((ml,j)=>{const k=y+'-'+String(j+1).padStart(2,'0');return `<button class="chip ${m.month===k?'on':''}" onclick="cxPastSet(${i},'month','${k}')">${ml}</button>`}).join('')}</div>`})()}</div>`).join('')+`<button class="btn sec sm" style="margin-top:10px" onclick="CXE.past.push({});cxForm()">+ Ajouter une autre mission</button>`:''}
+ ${ms.length?`<p class="small" style="margin-top:8px">Missions enregistrées dans l'app : ${ms.map(a=>`${esc(a.hotel)} · ${a.from?fm(a.from):'date à fixer'} (${cxDone(a)?'réalisée':'planifiée'})`).join(' · ')}</p>`:''}
  <div class="mfoot">${isNew?'<span></span>':`<button class="btn sec" style="color:var(--terra)" onclick="cxDelete()">Supprimer</button>`}<span style="display:flex;gap:8px"><button class="btn sec" onclick="closeAll()">Annuler</button><button class="btn" onclick="cxSave()">Enregistrer</button></span></div>`)}
+/* 24 derniers mois, du plus récent au plus ancien */
+function cxMonths(){const d=new Date();const out=[];for(let i=0;i<24;i++){const x=new Date(d.getFullYear(),d.getMonth()-i,1);out.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}return out}
+function cxPastYear(i,y){const m=CXE.past[i];m.month=y+'-'+(m.month?m.month.slice(5,7):String(new Date().getMonth()+1).padStart(2,'0'));cxForm()}
+function cxDeja(v){CXE.deja=v;if(v==='oui'&&!(CXE.past||[]).length)CXE.past=[{}];cxForm()}
+function cxPastSet(i,k,v){CXE.past[i][k]=CXE.past[i][k]===v?'':v;cxForm()}
 function cxToggleH(h){const a=CXE.hotels||(CXE.hotels=[]);const i=a.indexOf(h);if(i<0)a.push(h);else a.splice(i,1);cxForm()}
-async function cxSave(){['prenom','nom','contact','tel','email','notes','passage'].forEach(k=>{const e=document.getElementById('cx-'+k);if(e)CXE[k]=e.value.trim()});if(!CXE.prenom&&!CXE.nom){toast('Indiquez au moins un prénom ou un nom');return}
- const i=CARDEX.findIndex(x=>x.id===CXE.id);if(i<0)CARDEX.push(CXE);else CARDEX[i]=CXE;closeAll();render();try{await cxPersist(CXE);toast('Contact enregistré')}catch(e){toast("L'enregistrement a échoué : "+e.message)}}
+async function cxSave(){['prenom','nom','contact','tel','email','notes'].forEach(k=>{const e=document.getElementById('cx-'+k);if(e)CXE[k]=e.value.trim()});CXE.passage=CXE.deja==='oui'?cxPastStr((CXE.past||[]).filter(m=>m.hotel||m.fmt||m.month)):CXE.deja==='non'?'non':'';if(!CXE.prenom&&!CXE.nom){toast('Indiquez au moins un prénom ou un nom');return}
+ const row={...CXE};delete row.deja;delete row.past;const i=CARDEX.findIndex(x=>x.id===row.id);if(i<0)CARDEX.push(row);else CARDEX[i]=row;closeAll();render();try{await cxPersist(row);toast('Contact enregistré')}catch(e){toast("L'enregistrement a échoué : "+e.message)}}
 async function cxDelete(){if(!confirm('Supprimer ce contact du cardex ?'))return;const c=CXE;CARDEX=CARDEX.filter(x=>x.id!==c.id);closeAll();render();try{await cxPersist(c,true);toast('Contact supprimé')}catch(e){toast('La suppression a échoué')}}
 function cxPlan(id){const c=CARDEX.find(x=>x.id===id);if(!c)return;const f=Object.keys(CX_PROF).find(k=>c[k]);const h=HOTELS.find(x=>(c.hotels||[]).some(ch=>x.includes(ch)));newAudit(f||null,h||null);NA.who='client';NA.client=cxFull(c);NA.email=c.email||'';if(typeof renderNA==='function')renderNA()}
 /* ===== Rapports ===== */
