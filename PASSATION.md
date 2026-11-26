@@ -116,7 +116,20 @@
      - annoter une question (« 💬 Annoter » dans le détail des réponses) ;
      - ajouter une remarque générale ;
      - valider le rapport.
-  3. Le rapport affiche qui a validé et combien de points sont à reprendre.
+  3. Le rapport affiche le statut de chaque personne : non lu, lu, commentaires, validé.
+- **Mode commentaire** : un destinataire qui ouvre le rapport voit « 💬 Commenter » sous chaque réponse.
+  - Chaque personne a sa couleur.
+  - « Valider le rapport » est une case à cocher, que l'on peut décocher.
+- **Groupes** : « Nouvelle discussion » avec une personne = discussion privée ; avec plusieurs = groupe (nom obligatoire). « ＋👤 » ajoute des personnes à une discussion.
+- **Tableau de bord** : un encadré « À faire » liste les rapports à relire, les rapports à valider, les plans proches de l'échéance, les questionnaires en retard et les messages non lus.
+
+## 8 bis. Audits déjà réalisés (saisie manuelle)
+- **Où** : Planification › Programme et calendrier.
+  - Bouton « ✓ Audit déjà réalisé », ou « + » dans une case, puis « Saisir un audit déjà réalisé ».
+- **Obligatoire** : hôtel, date, note sur 100.
+- **Facultatif** : format, client mystère, % par bloc, points critiques ratés, commentaire, fichiers joints (rapport, Excel, PowerPoint).
+- **Effet** : l'audit compte dans le programme, le suivi par hôtel, le tableau de bord et les performances.
+- **Modifier ou supprimer** : ouvrir l'audit depuis sa case du programme ou depuis Rapports.
 
 ## 9. Déroulé d'un audit
 1. « + Nouvel audit » : il est prérempli avec le premier mois sans audit dans le programme. Choisir le format, l'hôtel, le canal, les dates et le client mystère.
