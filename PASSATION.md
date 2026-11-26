@@ -1,95 +1,135 @@
-# Passation : site Audit Client Mystère Alfred Hotels
+# Passation : site Audit Client Mystère Alfred Hotels (version 4 · novembre 2026)
 
 ## 1. À quoi sert le site
-- Créer les audits client mystère (format Business, Famille ou Couple, hôtel, réservation site ou Booking, dates, saison).
-- Envoyer au client mystère un lien unique (1 lien = 1 personne) : il remplit le questionnaire sur téléphone, moment par moment, sans compte.
-- Recevoir automatiquement les réponses : rapport, note, critiques, plan d'action sous 15 jours.
-- Suivre les performances, la planification annuelle et le cardex des clients mystère.
-- Exporter chaque rapport en Excel (formules qui se recalculent) et en PowerPoint (charte Alfred).
+- Créer les audits client mystère (format Famille, Solo ou Duo ; hôtel ; canal de réservation Site web, Téléphone ou E-mail ; dates).
+- Envoyer au client mystère un lien unique (1 lien = 1 personne). Il remplit le questionnaire sur téléphone, moment par moment, sans compte.
+- Recevoir les réponses automatiquement : rapport, note sur 100, points critiques, plan d'action sous 15 jours.
+- Échanger entre collègues (messages, fichiers), envoyer un rapport à des utilisateurs qui l'annotent ou le valident.
+- Suivre les performances, comparer les hôtels, planifier l'année, tenir le cardex des clients mystère.
+- Exporter chaque rapport en Excel (même modèle et mêmes formules que le fichier V2.2) et en PowerPoint (charte Alfred).
 
-## 2. Les 3 briques techniques
-- **Le site** : un seul fichier `index.html`, publié par GitHub Pages.
-  - Dépôt : `alfredhotelspro/audit-client-mystere`, branche `main`.
-  - Adresse : https://alfredhotelspro.github.io/audit-client-mystere/
-  - Photos des PowerPoint (couverture de chaque hôtel, intercalaires « Les scores », « Perception de la marque », « La conciergerie », « merci », logo) : un seul fichier `rapport-photos.json`, à la racine du dépôt. Pour changer une photo, demander à Claude de régénérer ce fichier.
-- **La base de données** : un Google Sheet.
-  - Onglet `data` : audits, réponses, plans, statuts des rapports, questions modifiées, réglages (saisons). Ne pas modifier à la main.
-  - Onglet `cardex_app` : répertoire des clients mystère, rempli depuis l'app.
-  - Onglet `comptes` : comptes de la plateforme.
-- **Le script** : Extensions › Apps Script du Google Sheet (code dans `apps-script.gs`), publié en « Application Web ».
-  - Il fait le lien entre le site et le Sheet.
-  - Les photos des clients vont dans le dossier Drive « Alfred Audit Photos ».
+## 2. Le questionnaire V2.2
+- **Source** : fichier « ALFRED_Audit_Client_Mystere_VF_Coef_Automatiques.xlsx ».
+  - 270 critères, 13 étapes du parcours.
+  - Ressentis et avis hors note.
+- **Réponses** : Oui / Non / N/A / Non observé.
+  - N/A et Non observé sortent du calcul.
+  - Un motif est obligatoire pour Non, N/A et Non observé sur un critère de la note hôtel, et pour un bonus Oui.
+  - Le client ne peut pas envoyer son questionnaire tant qu'il manque une réponse ou un motif. Le site l'emmène directement à la première question à compléter.
+- **Canal** : les questions Téléphone, E-mail ou Site web n'apparaissent que pour le canal de l'audit.
+  - Le parcours site web (DIG) est hors note de l'hôtel : il est transmis au siège.
+- **Équipements** : les questions patio, parking, restaurant / bar, rooftop et balcon / terrasse n'apparaissent que si l'hôtel a l'équipement, ouvert à la date de l'audit.
+  - Même chose pour les ressentis associés, et pour la question sur la consommation (restaurant et rooftop).
+  - Une photo est obligatoire pour le rooftop et le restaurant.
+- **Hors note de l'hôtel** : conciergerie avant séjour (AVA), après séjour (APS), avis client (AVI), ressentis.
+- **Formats** : les trois formats (Famille, Solo, Duo) ont le même questionnaire.
+- **Anciens rapports** : ceux reçus avant cette version gardent leur ancien questionnaire et leur ancienne note.
 
-## 3. Mettre le site à jour
-1. GitHub › dépôt › **Add file › Upload files**.
-2. Déposer le nouveau `index.html` (il remplace l'ancien).
-3. Cliquer **Commit changes**, attendre 1 à 2 minutes, puis recharger le site.
+## 3. La note (Paramètres › Notation)
+- **Coefficients** : P0 = 10, P1 = 5, P2 = 3, P3 = 1. Les 43 références du buffet ont le coefficient 1.
+- **Conformité d'un bloc** = points acquis ÷ points observés.
+- **Poids des blocs** :
+  - Service 25 % ;
+  - Propreté 20 % ;
+  - Conformité 5 % ;
+  - Produit / Standards Alfred 44 % ;
+  - Références alimentaires 6 %.
+- **Note avant malus** : elle n'est calculée que si les 5 blocs ont au moins une observation. Sinon : « Incomplet » (pas de redistribution des poids).
+- **Malus** :
+  - −3 pts par point critique (P0) non conforme.
+  - Buffet : −3 pts dès 6 références manquantes, −6 pts dès 10.
+- **Bonus** : +1 pt par attention décrite, 3 pts maximum. Les bonus sont annulés par un P0 non conforme.
+- **Note finale** : bornée entre 0 et 100.
+- **Statut de la note** :
+  - « Provisoire » s'il reste des critères à observer ou des motifs manquants ;
+  - « Incomplet » si un bloc n'a aucune observation ;
+  - « Complet » sinon.
+- **Modifier le barème** : tout est modifiable par un administrateur dans Paramètres › Notation. « Revenir au barème du fichier » rétablit les valeurs d'origine.
 
-L'adresse du script est déjà écrite dans `index.html` (ligne `const API_URL=`). Ne la changer que si un nouveau script est créé (nouvelle adresse « /exec »).
+## 4. Hôtels et équipements (Paramètres › Hôtels et équipements)
+- **Matrice du fichier** : cocher ou décocher un équipement par hôtel.
+- **Nom et période d'ouverture** : facultatifs, pour chaque équipement.
 
-## 4. Mettre le script à jour
-1. Ouvrir le Google Sheet › **Extensions › Apps Script**.
-2. Tout sélectionner, coller le nouveau `apps-script.gs`, puis enregistrer.
-3. Vérifier la ligne `CARDEX_KEY` : c'est le code d'accès au cardex.
-4. **Déployer › Gérer les déploiements › crayon › Version : Nouvelle version › Déployer.**
+| Hôtel | Équipements |
+|---|---|
+| Compiègne | Parking |
+| Biarritz Port-Vieux | Patio, Balcon |
+| Biarritz Les Halles | Patio, Restaurant La Gambette (avril à octobre), Balcon |
+| Beaune | Patio, Parking, Balcon |
+| Monaco | Restaurant / Bar, Rooftop Basta Pinsa (été) |
+| Toulouse Centre Wilson | Patio, Parking, Balcon |
+| Toulouse Victor Hugo | Restaurant La Gambette (mai à septembre) |
+| Montreuil | Patio, Restaurant Corner, Rooftop Corner (été) |
+| Paris Gare du Nord | Balcon |
+| Lecourbe | Patio |
 
-Garder le même déploiement permet de garder la même adresse.
+## 5. Les fichiers du site (GitHub Pages)
+- **Dépôt** : `alfredhotelspro/audit-client-mystere`, branche `main`. Adresse : https://alfredhotelspro.github.io/audit-client-mystere/
+- **Fichiers à la racine du dépôt** :
+  - `index.html` : le site ;
+  - `lib-excel.js` et `lib-ppt.js` : chargés seulement au moment d'un export, la page s'ouvre plus vite ;
+  - `rapport-photos.json` : photos des PowerPoint.
+- **À supprimer du dépôt s'ils y sont encore** : ancien `index (2).html`, anciennes photos de couverture en .jpg, dossier `libs/`.
+- **Mise à jour** :
+  1. Add file › Upload files.
+  2. Déposer les fichiers.
+  3. Commit changes.
+  4. Attendre 1 à 2 minutes.
 
-## 5. Comptes et accès
-- **Connexion** : la plateforme demande e-mail et mot de passe. Les liens clients restent ouverts sans compte.
-- **Création de compte** : les adresses `@alfredhotels.com` créent leur compte seules (« Créer un compte »). Le premier compte créé est Administrateur.
-- **Autre adresse** : Paramètres › Comptes › **Ajouter un compte** (ou ajouter l'e-mail dans l'onglet `comptes`). La personne crée ensuite son mot de passe.
-- **Mot de passe oublié** : vider la cellule « Hash » de la personne dans l'onglet `comptes`. Elle recrée son compte avec la même adresse.
-- **Retirer un accès** : supprimer sa ligne dans l'onglet `comptes`.
-- **Limite** : c'est une protection simple. Le mot de passe est chiffré et vérifié par le script, mais toute personne qui connaît l'adresse du script peut lire les données d'audit. Ne jamais mettre de données sensibles dans les commentaires.
-- **Cardex** : Planification › Cardex, accessible à tout compte connecté (aucun code à saisir). Les contacts s'ajoutent dans l'app au fur et à mesure (prénom, nom, contact chez Alfred, téléphone, e-mail, profils Famille / Solo / Duo, hôtels, commentaire, résumé de passage) et sont enregistrés dans l'onglet `cardex_app` du Sheet, créé automatiquement.
+## 6. La base de données et le script
+- **Google Sheet** :
+  - `data` : audits, réponses, plans, rapports, questions, réglages. Les grosses réponses sont découpées automatiquement sur plusieurs cellules.
+  - `comptes` : e-mail, nom, rôle, poste, photo, hôtel.
+  - `cardex_app` : répertoire des clients mystère.
+  - `fils` et `messages` : la partie Échanges.
+- **À supprimer** : l'ancien onglet cardex importé, s'il existe encore.
+- **Script** : Extensions › Apps Script (fichier `apps-script.gs`, version `v40-echanges`).
+  - Mise à jour : coller le code, enregistrer, puis Déployer › Gérer les déploiements › crayon › Version : Nouvelle version › Déployer.
+  - Vérification : ouvrir l'adresse /exec?ping=1. La réponse doit indiquer `v40-echanges`.
+- **Tâches automatiques** : dans l'éditeur Apps Script, choisir la fonction `installTriggers` puis Exécuter, une seule fois, et accepter les autorisations (e-mails, Drive). Chaque matin vers 8 h, le script :
+  - envoie un rappel au client mystère 2 jours après son départ si le questionnaire n'est pas envoyé ;
+  - envoie un e-mail aux administrateurs pour les questionnaires reçus (avec le nombre de points critiques) et les plans d'action à 3 jours de l'échéance ;
+  - le lundi, sauvegarde le Google Sheet dans Drive (« Alfred Audit Sauvegardes », 8 dernières copies gardées).
 
-## 6. Modifier les questions
-- **Accès** : Librairie › un format › **Modifier les questions**.
-- **Ce qu'on peut changer** : texte, intitulé court (utilisé dans le PowerPoint), type, moment du parcours, section, rubrique, formats, mode de réservation, équipement saisonnier, photo, statut (validée, à valider, à retirer). Tout se fait sans code.
-- **Types** :
-  - Normale : 1 pt.
-  - Essentielle : 3 pts.
-  - Critique : 3 pts. Si elle est ratée : −3 sur la note globale et un plan d'action sous 15 jours.
-  - Buffet : 26 pts répartis entre les produits.
-  - Bonus : +1, seulement si le fait est décrit.
-  - Ressenti /5 et Hors note : affichés à part, sans effet sur la note.
-- **Ajouter / retirer** : « + Ajouter une question ». « Retirer la question » est réversible : la question reste dans « Questions retirées ».
-- **Enregistrement** : les changements vont dans le Sheet (collection `questions`) et s'appliquent aux liens clients et aux rapports, qui sont recalculés.
-- **Questionnaire de base** : c'est le tableau CM-V3 (nov. 2026), présent dans le code.
-- **Anciens audits** : les réponses reçues avant la V3 gardent l'ancien questionnaire.
+## 7. Comptes et sécurité
+- **Lecture et écriture** : réservées aux comptes connectés. Un lien client ne peut écrire que ses propres réponses, et une seule fois.
+- **Création de compte** :
+  - Les adresses `@alfredhotels.com` créent leur compte seules ; le poste est obligatoire.
+  - Les autres adresses sont ajoutées par un administrateur (Paramètres › Comptes).
+  - Le premier compte créé est Administrateur.
+- **Rôles** :
+  - Administrateur : tout ;
+  - Utilisateur : audits, rapports, plans ;
+  - Lecteur : consultation ;
+  - Directeur d'hôtel : son hôtel uniquement, en lecture, sans cardex ni planification.
+  - Pour changer un rôle : Échanges › Utilisateurs › Rôle.
+- **Mot de passe oublié** : « Mot de passe oublié » sur la page de connexion. Un code à 6 chiffres arrive par e-mail ; il est valable 30 minutes.
+- **Session** : elle se ferme d'elle-même après 30 jours.
+- **Profil** (Paramètres › Mon profil) : photo, nom, poste.
 
-## 7. Espaces propres à chaque hôtel et saisons
-- **Réglage** : Paramètres › **Hôtels et saisons**. Chaque hôtel liste ses espaces (nom, type : rooftop, restaurant, bar ou terrasse) et leur ouverture : toute l'année, été (mai à septembre), hiver (octobre à avril) ou mois précis.
-- **Espaces actuels** :
-  - Monaco : Basta Pinsa (rooftop, été) ;
-  - Biarritz Les Halles : La Gambette (avril à octobre) ;
-  - Biarritz Port-Vieux : La Maison et Port Vieux (toute l'année) ;
-  - Montreuil : Corner (restaurant, toute l'année) et son rooftop bar (été) ;
-  - Toulouse Victor Hugo : La Gambette (mai à septembre).
-- **Effet sur le questionnaire** : pour chaque espace ouvert à la date de l'audit, « Je fais le tour de l'hôtel » ajoute « Qu'avez-vous pensé du rooftop / restaurant [nom] ? » (5 étoiles + photo obligatoire) et « En quelques mots, qu'avez-vous pensé de ce que vous avez consommé ? ». Ces réponses ne comptent pas dans la note et ont leur slide dans le PowerPoint (« Les espaces de l'hôtel »).
-- **Questions d'accueil liées** : « rooftop présenté » et « consommation proposée au rooftop » ne sont posées que si un rooftop est ouvert ; « restaurant recommandé » seulement si un restaurant est ouvert.
-- **À la création d'un audit** : la saison est proposée selon les dates et peut être changée.
-- **Aperçu** : Librairie › choisir un hôtel, puis Été ou Hiver.
+## 8. Échanges
+- **Discussions** : messages entre utilisateurs, fichiers joints (📎, 15 Mo maximum, rangés dans Drive « Alfred Audit Échanges »).
+- **Utilisateurs** : annuaire de tous les comptes, avec photo, poste, hôtel et dernière connexion. « 💬 Écrire » ouvre une discussion.
+- **Rapport partagé** :
+  1. Dans un rapport, choisir « 📤 Envoyer aux utilisateurs », puis cocher les destinataires (ils reçoivent aussi un e-mail).
+  2. Chaque destinataire peut :
+     - annoter une question (« 💬 Annoter » dans le détail des réponses) ;
+     - ajouter une remarque générale ;
+     - valider le rapport.
+  3. Le rapport affiche qui a validé et combien de points sont à reprendre.
 
-## 8. Déroulé d'un audit
-1. Planification › « + » (ou Librairie › Lancer un audit) : format, hôtel, réservation, dates, saison, client mystère.
-2. Copier le lien ou l'e-mail de bienvenue et l'envoyer au client. Créer les audits depuis l'adresse GitHub Pages, sinon le lien ne s'ouvre pas sur téléphone.
-3. Le client remplit le questionnaire. Le rapport arrive seul dans Rapports (actualisation toutes les 60 s).
-4. Relecture avec l'auditeur, puis validation, puis diffusion à l'hôtel.
-5. Exports Excel et PowerPoint depuis le rapport.
-6. Pour un audit test : cocher « Audit test » (non compté). Un audit se supprime avec l'icône rouge.
+## 9. Déroulé d'un audit
+1. « + Nouvel audit » : il est prérempli avec le premier mois sans audit dans le programme. Choisir le format, l'hôtel, le canal, les dates et le client mystère.
+2. Envoyer le lien ou l'e-mail de bienvenue au client. Créer les audits depuis l'adresse GitHub Pages.
+3. Le client remplit son questionnaire.
+   - Hors connexion, un bandeau le prévient.
+   - L'envoi repart seul au retour du réseau.
+4. Le rapport arrive seul dans Rapports. Un plan d'action est créé automatiquement pour les P0 non conformes.
+5. Relecture avec l'auditeur, envoi éventuel aux utilisateurs, puis diffusion à l'hôtel.
+6. Exports Excel et PowerPoint depuis le rapport.
 
-## 9. En cas de problème
-- **« La connexion n'a pas permis… »** : vérifier l'adresse du script dans `index.html` et que le script est déployé en accès « Tout le monde ».
-- **« Le script Google n'est pas à jour »** à la connexion : recoller `apps-script.gs` puis faire Nouvelle version (étape 4).
-- **Le lien client affiche « Merci ! » d'emblée** : ce lien a déjà été utilisé. Créer un nouvel audit.
-- **Photos absentes du PowerPoint** : vérifier que `rapport-photos.json` est bien à la racine du dépôt GitHub (l'app affiche un message s'il manque).
-
-## 10. À transmettre avant le départ
-- Propriété (ou accès éditeur) :
-  - du Google Sheet et du script ;
-  - du dossier Drive « Alfred Audit Photos » ;
-  - du dépôt GitHub `alfredhotelspro`.
-- Un compte Administrateur pour la personne qui reprend.
-- Le tableau source des questions (CM-V3) et ce document.
+## 10. Modifier les questions
+- **Accès** : Librairie › Modifier les questions.
+- **Ce qu'on peut changer** : texte, étape, moment, bloc de notation, priorité (le coefficient suit), périmètre, canal, équipement, applicabilité, justificatif.
+- **Historique** : le bouton « 🕘 Historique des modifications » montre qui a changé quoi et quand.
+- **Retirer une question** : c'est réversible.
