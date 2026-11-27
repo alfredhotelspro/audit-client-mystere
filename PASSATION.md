@@ -83,9 +83,9 @@
   - `cardex_app` : répertoire des clients mystère.
   - `fils` et `messages` : la partie Échanges.
 - **À supprimer** : l'ancien onglet cardex importé, s'il existe encore.
-- **Script** : Extensions › Apps Script (fichier `apps-script.gs`, version `v40-echanges`).
+- **Script** : Extensions › Apps Script (fichier `apps-script.gs`, version `v41-vu`).
   - Mise à jour : coller le code, enregistrer, puis Déployer › Gérer les déploiements › crayon › Version : Nouvelle version › Déployer.
-  - Vérification : ouvrir l'adresse /exec?ping=1. La réponse doit indiquer `v40-echanges`.
+  - Vérification : ouvrir l'adresse /exec?ping=1. La réponse doit indiquer `v41-vu`.
 - **Tâches automatiques** : dans l'éditeur Apps Script, choisir la fonction `installTriggers` puis Exécuter, une seule fois, et accepter les autorisations (e-mails, Drive). Chaque matin vers 8 h, le script :
   - envoie un rappel au client mystère 2 jours après son départ si le questionnaire n'est pas envoyé ;
   - envoie un e-mail aux administrateurs pour les questionnaires reçus (avec le nombre de points critiques) et les plans d'action à 3 jours de l'échéance ;
@@ -120,6 +120,10 @@
 - **Mode commentaire** : un destinataire qui ouvre le rapport voit « 💬 Commenter » sous chaque réponse.
   - Chaque personne a sa couleur.
   - « Valider le rapport » est une case à cocher, que l'on peut décocher.
+- **Vu** : sous votre dernier message, « ✓ Envoyé », puis « ✓✓ Vu » (ou « Vu par … » dans un groupe).
+- **Photos et fichiers** : 📎 envoie tout de suite la photo dans la discussion, avec un aperçu pendant l'envoi. Si la politique Google Workspace interdit le partage par lien, la photo est affichée via le script.
+- **Annotations** : quand on a fini d'annoter un rapport reçu, cliquer sur « ✓ Annotations terminées », puis « 📤 Partager mes annotations ». On choisit les personnes, et la liste des annotations part dans Échanges.
+- **Notifications** : une pastille rouge sur « Échanges » (et sur le menu ☰ sur téléphone) indique les messages non lus. Le nombre s'affiche aussi dans l'onglet du navigateur.
 - **Groupes** : « Nouvelle discussion » avec une personne = discussion privée ; avec plusieurs = groupe (nom obligatoire). « ＋👤 » ajoute des personnes à une discussion.
 - **Tableau de bord** : un encadré « À faire » liste les rapports à relire, les rapports à valider, les plans proches de l'échéance, les questionnaires en retard et les messages non lus.
 
