@@ -68,7 +68,8 @@
 - **Fichiers à la racine du dépôt** :
   - `index.html` : le site ;
   - `lib-excel.js` et `lib-ppt.js` : chargés seulement au moment d'un export, la page s'ouvre plus vite ;
-  - `rapport-photos.json` : photos des PowerPoint.
+  - `rapport-photos.json` : photos des PowerPoint ;
+  - `photos-standards.json` : photos d'exemple du standard Alfred affichées sous les questions (chargées seulement quand une question en a besoin).
 - **À supprimer du dépôt s'ils y sont encore** : ancien `index (2).html`, anciennes photos de couverture en .jpg, dossier `libs/`.
 - **Mise à jour** :
   1. Add file › Upload files.
@@ -146,6 +147,11 @@
 6. Exports Excel et PowerPoint depuis le rapport.
 
 ## 10. Modifier les questions
+- **Hôtels concernés** : une question peut être réservée à un ou plusieurs hôtels (boutons « Hôtels concernés » ; par défaut, tous).
+- **Photos d'exemple** : « 📷 Ajouter une photo » attache une photo du standard à la question ; le client la voit sous la question (« 👀 Le standard Alfred ») et peut l'agrandir. Les photos fournies (lit, rideaux, uniformes, plaques, etc.) sont déjà rattachées à leurs questions.
+- **Désactiver** : « 🚫 Désactiver la question » la retire des questionnaires sans la supprimer ; « 👁 Réactiver » la remet.
+- **Corriger une réponse client** : dans un rapport, sous chaque réponse, « ✏️ Modifier la réponse » (Oui, Non, N/A, Non observé + motif). La réponse d'origine est gardée et peut être rétablie ; la note se recalcule.
+
 - **Accès** : Librairie › Modifier les questions.
 - **Ce qu'on peut changer** : texte, étape, moment, bloc de notation, priorité (le coefficient suit), périmètre, canal, équipement, applicabilité, justificatif.
 - **Historique** : le bouton « 🕘 Historique des modifications » montre qui a changé quoi et quand.
